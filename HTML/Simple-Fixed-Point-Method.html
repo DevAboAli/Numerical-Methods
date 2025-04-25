@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Numerical Methods</title>
+  <link rel="stylesheet" href="../CSS/methods.css" />
+  <link rel="stylesheet" href="../bootstrap-5.3.3-dist/css/bootstrap.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@100;200;300;400;500;600;700&display=swap" rel="stylesheet"/>
+</head>
+<body>
+  <nav class="navbar navbar-light bg-light fixed-top shadow">
+    <div class="container-fluid">
+      <span class="navbar-collapse mb-2 h2 mx-5 px-5 text-danger">EGISTA</span>
+    </div>
+  </nav>
+
+  <main class="container p-4 rounded-4 my-3 mt-5 w-100 w-md-75">
+    <div class="py-5 g-3 p-4 mx-auto w-100 w-md-75">
+      <h1>Simple Fixed Point Method</h1>
+      <p>Online tool to find real root of nonlinear equation quickly using Fixed Point method.</p>
+    </div>
+
+    <div class="py-5 g-3 p-4 mx-auto w-100 w-md-75">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+        <h2>Calculator</h2>
+        <div class="icons mt-3 mt-md-0">
+          <img src="../images/download.svg" id="clearBtn" alt="Clear icon" style="cursor:pointer" />
+          <img src="../images/download (1).svg" id="calculateBtn" alt="Calculate icon" style="cursor:pointer" />
+        </div>
+      </div>
+      <div class="inputs py-3">
+        <input class="form-control mb-3" id="gxInput" placeholder="Enter g(x)..." list="datalistOptions" />
+        <datalist id="datalistOptions">
+          <option value="cos(x)">
+          <option value="(x^2 + 3)/5">
+        </datalist>
+
+        <div class="row mt-3 gy-3">
+          <div class="col-12 col-md-3">
+            <input type="number" class="form-control" id="x0" placeholder="Enter x0..." />
+          </div>
+          <div class="col-12 col-md-3">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <input class="form-check-input" type="radio" name="methodType" id="useError" value="error" checked>
+              <input type="number" class="form-control" id="errorInput" placeholder="Enter error..." />
+            </div>
+          </div>
+          <div class="col-12 col-md-3">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <input class="form-check-input" type="radio" name="methodType" id="useMaxIter" value="maxIter">
+              <input type="number" class="form-control" id="maxIterInput" placeholder="Enter max iterations..." disabled />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table d-none" id="resultTableContainer">
+      <h2 class="text-center">Solution</h2>
+      <p id="rootValue" style="text-align: right;" class="d-none">Root is:</p>
+      <table id="resultTable" class="table table-bordered table-hover w-100 w-md-75 m-auto text-center">
+        <thead class="table-light">
+          <tr>
+            <th>i</th>
+            <th>Xi</th>
+            <th>F(Xi)</th>
+            <th>Σ %</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <footer class="mt-5 text-center">
+    <p>Code on <b><a href="https://github.com/DevAboAli" class="text-black">Github</a></b></p>
+  </footer>
+
+
+<script>
+    function parseFunction(funcStr) {
+      try {
+        return new Function("x", `return ${math.parse(funcStr).toString()};`);
+      } catch {
+        alert("Invalid function input");
+        throw new Error("Invalid function input");
+      }
+    }
+  
+    document.addEventListener("DOMContentLoaded", () => {
+      const gxInput = document.getElementById("gxInput");
+      const x0Input = document.getElementById("x0");
+      const errorInput = document.getElementById("errorInput");
+      const maxIterInput = document.getElementById("maxIterInput");
+      const useError = document.getElementById("useError");
+      const useMaxIter = document.getElementById("useMaxIter");
+      const calcBtn = document.getElementById("calculateBtn");
+      const clearBtn = document.getElementById("clearBtn");
+  
+      const tableContainer = document.getElementById("resultTableContainer");
+      const tableBody = document.querySelector("#resultTable tbody");
+      const rootValue = document.getElementById("rootValue");
+  
+      useError.addEventListener("change", () => {
+        errorInput.disabled = false;
+        maxIterInput.disabled = true;
+      });
+  
+      useMaxIter.addEventListener("change", () => {
+        errorInput.disabled = true;
+        maxIterInput.disabled = false;
+      });
+  
+      clearBtn.addEventListener("click", () => {
+        gxInput.value = "";
+        x0Input.value = "";
+        errorInput.value = "";
+        maxIterInput.value = "";
+        tableBody.innerHTML = "";
+        tableContainer.classList.add("d-none");
+        rootValue.classList.add("d-none");
+      });
+  
+      calcBtn.addEventListener("click", () => {
+        const gxStr = gxInput.value;
+        const x0 = parseFloat(x0Input.value);
+        const tol = parseFloat(errorInput.value);
+        const maxIter = parseInt(maxIterInput.value);
+  
+        if (!gxStr || isNaN(x0)) {
+          alert("Please enter valid g(x) and x0");
+          return;
+        }
+  
+        if (useError.checked && isNaN(tol)) {
+          alert("Please enter a valid error tolerance.");
+          return;
+        }
+  
+        if (useMaxIter.checked && isNaN(maxIter)) {
+          alert("Please enter a valid max iterations number.");
+          return;
+        }
+  
+        let g;
+        try {
+          g = parseFunction(gxStr);
+        } catch {
+          return;
+        }
+  
+        let xi = x0;
+        let error = 100;
+        let i = 0;
+        const results = [];
+  
+        tableBody.innerHTML = "";
+  
+        if (useError.checked) {
+          while (error > tol && i < 100) {
+            const nextXi = g(xi);
+            error = Math.abs((nextXi - xi) / nextXi) * 100;
+            results.push({ i, xi, nextXi, error });
+            xi = nextXi;
+            i++;
+          }
+        } else if (useMaxIter.checked) {
+          for (i = 0; i < maxIter; i++) {
+            const nextXi = g(xi);
+            error = Math.abs((nextXi - xi) / nextXi) * 100;
+            results.push({ i, xi, nextXi, error });
+            xi = nextXi;
+          }
+        }
+  
+        results.forEach((row) => {
+          tableBody.innerHTML += `<tr>
+            <td>${row.i}</td>
+            <td>${row.xi.toFixed(6)}</td>
+            <td>${row.nextXi.toFixed(6)}</td>
+            <td>${row.error.toFixed(6)}</td>
+          </tr>`;
+        });
+  
+        if (results.length > 0) {
+          rootValue.textContent = `Root is: ${xi.toFixed(6)}`;
+          rootValue.classList.remove("d-none");
+          tableContainer.classList.remove("d-none");
+        } else {
+          alert("No iterations were performed. Check your inputs.");
+        }
+      });
+    });
+  </script>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+</body>
+</html>

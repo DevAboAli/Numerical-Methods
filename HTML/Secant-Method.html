@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Secant Method</title>
+  <link rel="stylesheet" href="../CSS/methods.css" />
+  <link rel="stylesheet" href="../bootstrap-5.3.3-dist/css/bootstrap.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=swap" rel="stylesheet"/>
+</head>
+<body>
+  <nav class="navbar navbar-light bg-light fixed-top shadow">
+    <div class="container-fluid">
+      <span class="navbar-collapse mb-2 h2 mx-5 px-5 text-danger">EGISTA</span>
+    </div>
+  </nav>
+
+  <main class="container p-4 rounded-4 my-5 mt-5 w-100 w-md-75">
+    <div class="py-5 g-3 p-4 mx-auto w-100 w-md-75">
+        <h1>Secant Method</h1>
+        <p>Online tool to find real root of nonlinear equation using Secant Method.</p>
+    </div>
+
+    <section class="mb-5">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3">
+        <h2>Calculator</h2>
+        <div class="icons mt-3 mt-md-0 d-flex gap-3">
+          <img src="../images/download.svg" alt="Clear" role="button" id="clearBtn"/>
+          <img src="../images/download (1).svg" alt="Calculate" role="button" id="calculateBtn"/>
+        </div>
+      </div>
+
+      <div class="inputs">
+        <input class="form-control mb-3" list="datalistOptions" id="functionInput" placeholder="Enter function f(x)..." />
+        <datalist id="datalistOptions">
+          <option value="x^3 - x - 2">
+          <option value="cos(x) - x">
+        </datalist>
+
+        <div class="row mt-3 gy-3">
+          <div class="col-12 col-md-3">
+            <input type="number" class="form-control" id="Xi" placeholder="Enter Xi..." />
+          </div>
+          <div class="col-12 col-md-3">
+            <input type="number" class="form-control" id="Xi_1" placeholder="Enter Xi-1..." />
+          </div>
+          <div class="col-12 col-md-3">
+            <div class="d-flex align-items-center gap-2">
+              <input class="form-check-input" type="radio" name="methodType" id="useError" value="error" checked>
+              <input type="number" class="form-control" id="errorInput" placeholder="Enter error...">
+            </div>
+          </div>
+          <div class="col-12 col-md-3">
+            <div class="d-flex align-items-center gap-2">
+              <input class="form-check-input" type="radio" name="methodType" id="useMaxIter" value="maxIter">
+              <input type="number" class="form-control" id="maxIterInput" placeholder="Enter max iterations..." disabled>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="table d-none" id="resultTableContainer">
+      <h2 class="text-center">Solution</h2>
+      <p id="rootValue" class="text-end d-none fw-bold text-success">Root is:</p>
+      <table id="resultTable" class="table table-bordered table-hover w-100 w-md-75 mx-auto text-center">
+        <thead class="table-light">
+          <tr>
+            <th>i</th>
+            <th>Xi</th>
+            <th>Xi-1</th>
+            <th>Xi+1</th>
+            <th>F(Xi)</th>
+            <th>F(Xi-1)</th>
+            <th>Error (%)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer class="mt-5 text-center">
+    <p>Code on <b><a href="https://github.com/DevAboAli" class="text-black">GitHub</a></b></p>
+  </footer>
+
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      const functionInput = document.getElementById("functionInput");
+      const x0Input = document.getElementById("Xi_1");
+      const x1Input = document.getElementById("Xi");
+      const errorInput = document.getElementById("errorInput");
+      const maxIterInput = document.getElementById("maxIterInput");
+
+      const useErrorRadio = document.getElementById("useError");
+      const useMaxIterRadio = document.getElementById("useMaxIter");
+
+      const showBtn = document.getElementById("calculateBtn");
+      const clearBtn = document.getElementById("clearBtn");
+
+      const rootValue = document.getElementById("rootValue");
+      const resultTableContainer = document.getElementById("resultTableContainer");
+      const resultTable = document.getElementById("resultTable");
+      const tableBody = resultTable.querySelector("tbody");
+
+      function parseFunction(funcStr) {
+        try {
+          return new Function("x", `return ${funcStr.replace(/x/g, "(x)")};`);
+        } catch {
+          throw new Error("Invalid function");
+        }
+      }
+
+      function secantMethod(fxStr, x0, x1, eps = null, maxIter = null) {
+        const f = parseFunction(fxStr);
+        let x2 = 0, error = 100;
+        const data = [];
+        let i = 0;
+
+        while (true) {
+          const fx0 = f(x0);
+          const fx1 = f(x1);
+
+          x2 = x1 - fx1 * (x1 - x0) / (fx1 - fx0);  // حساب Xi+1
+          error = i === 0 ? 100 : Math.abs((x2 - x1) / x2) * 100;
+          const fx2 = f(x2);
+
+          data.push({ i, x0, x1, x2, fx0, fx1, fx2, error });
+
+          if ((eps !== null && error < eps) || (maxIter !== null && i >= maxIter)) break;
+
+          x0 = x1;
+          x1 = x2;
+          i++;
+        }
+
+        return data;
+      }
+
+      function renderTable(data) {
+        tableBody.innerHTML = "";
+        data.forEach((row, idx) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${row.i}</td>
+            <td>${row.x1.toFixed(6)}</td>
+            <td>${row.x0.toFixed(6)}</td>
+            <td class="${idx === data.length - 1 ? 'root' : ''}">
+              ${idx === data.length - 1 ? `<span class='badge bg-info'>${row.x2.toFixed(6)}</span>` : row.x2.toFixed(6)}
+            </td>
+            <td>${row.fx1.toFixed(6)}</td>
+            <td>${row.fx0.toFixed(6)}</td>
+            <td>${idx === 0 ? '____' : row.error.toFixed(2) + ' %'}</td>
+          `;
+          tableBody.appendChild(tr);
+        });
+      }
+
+      showBtn.addEventListener("click", () => {
+        const func = functionInput.value.trim();
+        const x0 = parseFloat(x0Input.value);
+        const x1 = parseFloat(x1Input.value);
+        const eps = !errorInput.disabled ? parseFloat(errorInput.value) : null;
+        const maxIter = !maxIterInput.disabled ? parseInt(maxIterInput.value) : null;
+
+        if (!func || isNaN(x0) || isNaN(x1)) {
+          alert("Please enter a valid function and values for Xi and Xi-1.");
+          return;
+        }
+
+        if (useErrorRadio.checked && (isNaN(eps) || eps <= 0)) {
+          alert("Please enter a valid error.");
+          return;
+        }
+
+        if (useMaxIterRadio.checked && (isNaN(maxIter) || maxIter <= 0)) {
+          alert("Please enter a valid max iteration count.");
+          return;
+        }
+
+        try {
+          parseFunction(func);
+          const results = secantMethod(func, x0, x1, eps, maxIter);
+          renderTable(results);
+
+          const lastRoot = results[results.length - 1].x2.toFixed(6);
+          rootValue.textContent = `Root is: ${lastRoot}`;
+          rootValue.classList.remove("d-none");
+          resultTableContainer.classList.remove("d-none");
+        } catch (err) {
+          alert("Error in function evaluation. Please check your input.");
+          console.error(err);
+        }
+      });
+
+      clearBtn.addEventListener("click", () => {
+        functionInput.value = "";
+        x0Input.value = "";
+        x1Input.value = "";
+        errorInput.value = "";
+        maxIterInput.value = "";
+
+        if (useErrorRadio.checked) {
+          errorInput.disabled = false;
+          maxIterInput.disabled = true;
+        } else {
+          maxIterInput.disabled = false;
+          errorInput.disabled = true;
+        }
+
+        tableBody.innerHTML = "";
+        rootValue.classList.add("d-none");
+        resultTableContainer.classList.add("d-none");
+      });
+
+      useErrorRadio.addEventListener("change", () => {
+        errorInput.disabled = false;
+        maxIterInput.disabled = true;
+      });
+
+      useMaxIterRadio.addEventListener("change", () => {
+        errorInput.disabled = true;
+        maxIterInput.disabled = false;
+      });
+    });
+  </script>
+</body>
+</html>

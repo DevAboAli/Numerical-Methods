@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Numerical Methds</title>
+    <link rel="stylesheet" href="CSS/style.css">
+    <link rel="stylesheet" href="bootstrap-5.3.3-dist/css/bootstrap.min.css">
+    <!-- fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
+    <!-- fonts -->
+</head>
+<body>
+  <nav class="navbar navbar-light bg-light fixed-top shadow">
+    <div class="container-fluid">
+      <span class="navbar-collapse mb-2 h2 mx-5 px-5 text-danger">EGISTA</span>
+    </div>
+  </nav>
+    <!-- <main class="container p-4 rounded-4 my-3 w-75 ">
+        <h1 class="py-5 g-3 p-4 w-75 mt-5 m-auto"> Online calculator to solve <span class="calr">numerical method</span> problems online</h1>
+        <div class="row g-3 p-3 w-75 m-auto">
+            <a href="/HTML/Bisection-Method.html" class="col-md-4 px-3 my-3">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4">
+                    <h3>Bisection Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+            <a href="/HTML/Secant-Method.html" class="col-md-4 px-3 my-3">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4">
+                    <h3>Secant Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+            <a href="/HTML/False-Position-Method.html" class="col-md-4 px-3 my-3">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4">
+                    <h3>False Position Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+            <a href="/HTML/Newton-Method.html" class="col-md-4 px-3 my-3">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4">
+                    <h3>Newton Raphson Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+            <a href="/HTML/Simple-Fixed-Point-Method.html" class="col-md-4 px-3 my-3">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4">
+                    <h3>Simple Fixed Point Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+            <a href="/HTML/Gauss-Elimination-Method.html" class="col-md-4 px-3 my-3">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4">
+                    <h3>Gauss Elimination Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+            <a href="/HTML/LU-Decomposition-Method.html" class="col-md-4 px-3 my-3">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4">
+                    <h3>LU Decomposition Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+            <a href="/HTML/Gauss-Jordan-Method.html" class="col-md-4 px-3 my-3">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4">
+                    <h3>Gauss Jordan Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+            <a href="/HTML/Cramer-Method.html" class="col-md-4 px-3 my-3">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4">
+                    <h3>New Cramer Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+        </div>  
+    </main> -->
+    
+    
+    <main class="container p-4 rounded-4 my-3">
+        <h1 class="py-5 g-3  mt-5">
+            Online calculator to solve <span class="calr">numerical method</span> problems online
+        </h1>
+        <div class="row g-3">
+            <a href="HTML/Bisection-Method.html" class="col-12 col-sm-6 col-md-4 col-md-4">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4 h-100">
+                    <h3>Bisection Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+            <a href="HTML/Secant-Method.html" class="col-12 col-sm-6 col-md-4 col-md-4">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4 h-100">
+                    <h3>Secant Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+            <a href="HTML/False-Position-Method.html" class="col-12 col-sm-6 col-md-4 col-md-4">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4 h-100">
+                    <h3>False Position Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+            <a href="HTML/Newton-Method.html" class="col-12 col-sm-6 col-md-4 col-md-4">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4 h-100">
+                    <h3>Newton Raphson Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+            <a href="HTML/Simple-Fixed-Point-Method.html" class="col-12 col-sm-6 col-md-4 col-md-4">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4 h-100">
+                    <h3>Simple Fixed Point Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+            <a href="HTML/Gauss-Elimination-Method.html" class="col-12 col-sm-6 col-md-4 col-md-4">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4 h-100">
+                    <h3>Gauss Elimination Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+            <a href="HTML/LU-Decomposition-Method.html" class="col-12 col-sm-6 col-md-4 col-md-4">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4 h-100">
+                    <h3>LU Decomposition Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+            <a href="HTML/Gauss-Jordan-Method.html" class="col-12 col-sm-6 col-md-4 col-md-4">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4 h-100">
+                    <h3>Gauss Jordan Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+            <a href="HTML/Cramer-Method.html" class="col-12 col-sm-6 col-md-4 col-md-4">
+                <div class="inner bg-warning p-4 d-flex flex-column justify-content-between rounded-4 h-100">
+                    <h3>New Cramer Method</h3>
+                    <p>Start</p>
+                </div>
+            </a>
+        </div>  
+    </main>
+    
+    <footer class=" mt-5 text-center ">
+        <p>Code on <b><a href="https://github.com/DevAboAli" class="text-black">Github</a></b></p>
+    </footer>
+</body>
+</html>
+
+
+
+

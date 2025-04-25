@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Newton Raphson Method</title>
+  <link rel="stylesheet" href="../bootstrap-5.3.3-dist/css/bootstrap.min.css" />
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="../CSS/methods.css" />
+</head>
+
+<body>
+  <nav class="navbar navbar-light bg-light fixed-top shadow">
+    <div class="container-fluid">
+      <span class="navbar-collapse mb-2 h2 mx-5 px-5 text-danger">EGISTA</span>
+    </div>
+  </nav>
+
+  <main class="container p-4 rounded-4 my-3 mt-5 w-100 w-md-75">
+    <div class="py-5 p-4 mx-auto">
+      <h1>Newton Raphson Method</h1>
+      <p>Online tool to find real root of nonlinear equation quickly using Newton Raphson method.</p>
+    </div>
+
+    <div class="py-5 p-4 mx-auto">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3">
+        <h2>Calculator</h2>
+        <div class="icons mt-3 mt-md-0">
+          <img src="../images/download.svg" alt="Clear icon" id="clearIcon" style="cursor:pointer;" />
+          <img src="../images/download (1).svg" alt="Calculate icon" id="calculateIcon" style="cursor:pointer;" />
+        </div>
+      </div>
+
+      <input class="form-control mb-3" list="datalistOptions" id="exampleDataList" placeholder="Enter function f(x)..." />
+      <datalist id="datalistOptions">
+        <option value="2*x**5 - Math.cos(x) - x*Math.exp(x)">
+        <option value="-2 + 7*x - 5*x**2 + 6*x**3">
+      </datalist>
+
+      <div class="row gy-3">
+        <div class="col-md-4">
+          <input type="number" class="form-control" id="Xi" placeholder="Enter Xi..." />
+        </div>
+
+        <div class="col-md-4">
+          <div class="d-flex align-items-center gap-2">
+            <input class="form-check-input" type="radio" name="methodType" id="useError" value="error" checked />
+            <input type="number" class="form-control" id="errorInput" placeholder="Enter error..." />
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="d-flex align-items-center gap-2">
+            <input class="form-check-input" type="radio" name="methodType" id="useMaxIter" value="maxIter" />
+            <input type="number" class="form-control" id="maxIterInput" placeholder="Enter max iterations..." disabled />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-5 d-none" id="resultTableContainer">
+      <h2 class="text-center">Solution</h2>
+      <p id="rootValue" class="text-end d-none">Root is:</p>
+      <table id="resultTable" class="table table-bordered table-hover text-center">
+        <thead class="table-light">
+          <tr>
+            <th>i</th>
+            <th>Xi</th>
+            <th>F(Xi)</th>
+            <th>F'(Xi)</th>
+            <th>Xi+1</th>
+            <th>Σ %</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <footer class="mt-5 text-center">
+    <p>Code on <b><a href="https://github.com/DevAboAli" class="text-black">Github</a></b></p>
+  </footer>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const useErrorRadio = document.getElementById("useError");
+      const useMaxIterRadio = document.getElementById("useMaxIter");
+      const errorInput = document.getElementById("errorInput");
+      const maxIterInput = document.getElementById("maxIterInput");
+      const resultTableContainer = document.getElementById("resultTableContainer");
+      const rootValue = document.getElementById("rootValue");
+      const resultTableBody = document.querySelector("#resultTable tbody");
+
+      useErrorRadio.addEventListener("change", () => {
+        errorInput.disabled = false;
+        maxIterInput.disabled = true;
+        maxIterInput.value = "";
+      });
+
+      useMaxIterRadio.addEventListener("change", () => {
+        maxIterInput.disabled = false;
+        errorInput.disabled = true;
+        errorInput.value = "";
+      });
+
+      document.getElementById("clearIcon").addEventListener("click", () => {
+        document.getElementById("exampleDataList").value = "";
+        document.getElementById("Xi").value = "";
+        errorInput.value = "";
+        maxIterInput.value = "";
+        resultTableContainer.classList.add("d-none");
+        rootValue.classList.add("d-none");
+        resultTableBody.innerHTML = "";
+      });
+
+      document.getElementById("calculateIcon").addEventListener("click", () => {
+        resultTableBody.innerHTML = "";
+
+        let funcStr = document.getElementById("exampleDataList").value;
+        const x0 = parseFloat(document.getElementById("Xi").value);
+        const useError = useErrorRadio.checked;
+        const eps = parseFloat(errorInput.value);
+        const maxIter = parseInt(maxIterInput.value);
+
+        if (!funcStr || isNaN(x0) || (useError && isNaN(eps)) || (useMaxIterRadio.checked && isNaN(maxIter))) {
+          alert("Please fill in all inputs.");
+          return;
+        }
+
+        funcStr = funcStr.replace(/^-/g, "-1*").replace(/\^/g, "**");
+        const f = new Function('x', `return ${funcStr};`);
+
+        function derivative(x, h = 1e-6) {
+          return (f(x + h) - f(x - h)) / (2 * h);
+        }
+
+        let xi = x0;
+        let iter = 0;
+        let error = null;
+
+        while (true) {
+          const fxi = f(xi);
+          const fpxi = derivative(xi);
+          const xiNext = xi - fxi / fpxi;
+          iter++;
+          error = Math.abs((xiNext - xi) / xiNext) * 100;
+
+          const isLastIteration = (useError && error < eps) || (!useError && iter >= maxIter) || iter > 100;
+
+          resultTableBody.innerHTML += `
+            <tr>
+              <td>${iter}</td>
+              <td>${xi.toFixed(5)}</td>
+              <td>${fxi.toFixed(5)}</td>
+              <td>${fpxi.toFixed(5)}</td>
+              <td>${isLastIteration ? `<span class='badge bg-info'>${xiNext.toFixed(5)}</span>` : xiNext.toFixed(5)}</td>
+              <td>${error.toFixed(5)}</td>
+            </tr>`;
+
+          if (isLastIteration) {
+            rootValue.textContent = `Root is: ${xiNext.toFixed(5)}`;
+            resultTableContainer.classList.remove("d-none");
+            rootValue.classList.remove("d-none");
+            break;
+          }
+
+          xi = xiNext;
+        }
+      });
+    });
+  </script>
+</body>
+
+</html>

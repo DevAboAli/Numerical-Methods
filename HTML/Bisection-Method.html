@@ -1,0 +1,245 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Numerical Methods</title>
+  <link rel="stylesheet" href="../CSS/methods.css" />
+  <link rel="stylesheet" href="../bootstrap-5.3.3-dist/css/bootstrap.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@100;200;300;400;500;600;700&display=swap" rel="stylesheet"/>
+</head>
+<body>
+  <nav class="navbar navbar-light bg-light fixed-top shadow">
+    <div class="container-fluid">
+      <span class="navbar-collapse mb-2 h2 mx-5 px-5 text-danger">EGISTA</span>
+    </div>
+  </nav>
+
+  <main class="container p-4 rounded-4 my-3 mt-5 w-100 w-md-75">
+    <div class="py-5 g-3 p-4 mx-auto w-100 w-md-75">
+      <h1>Bisection Method</h1>
+      <p>Online tool to find real root of nonlinear equation quickly using Bisection method.</p>
+    </div>
+
+    <div class="py-5 g-3 p-4 mx-auto w-100 w-md-75">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+        <h2>Calculator</h2>
+        <div class="icons mt-3 mt-md-0">
+          <img src="../images/download.svg" alt="Clear icon" />
+          <img src="../images/download (1).svg" alt="Calculate icon" />
+        </div>
+      </div>
+
+      <div class="inputs py-3">
+        <input class="form-control mb-3" list="datalistOptions" id="exampleDataList" placeholder="Enter function f(x)..." />
+        <datalist id="datalistOptions">
+          <option value="2x^5-cos(x)-x*exp(x)">
+          <option value="-2 + 7x - 5x^2 + 6x^3">
+        </datalist>
+        
+        <div class="row mt-3 gy-3">
+          <div class="col-12 col-md-3">
+            <input type="number" class="form-control mb-3" id="x0" placeholder="Enter Xu..." />
+          </div>
+        
+          <div class="col-12 col-md-3">
+            <input type="number" class="form-control mb-3" id="x1" placeholder="Enter Xl..." />
+          </div>
+        
+          <div class="col-12 col-md-3">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <input class="form-check-input" type="radio" name="methodType" id="useError" value="error" checked>
+              <input type="number" class="form-control" id="errorInput" placeholder="Enter error...">
+            </div>
+          </div>
+        
+          <div class="col-12 col-md-3">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <input class="form-check-input" type="radio" name="methodType" id="useMaxIter" value="maxIter">
+              <input type="number" class="form-control" id="maxIterInput" placeholder="Enter max iterations..." disabled>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table d-none" id="resultTableContainer">
+      <h2 class="text-center">Solution</h2>
+      <p id="rootValue" style="text-align: right;" class="d-none">Root is:</p>
+      <table id="resultTable" class="table table-bordered table-hover w-100 w-md-75 m-auto text-center">
+        <thead class="table-light">
+          <tr>
+            <th>i</th>
+            <th>xl</th>
+            <th>xu</th>
+            <th>xr</th>
+            <th>f(xl)</th>
+            <th>f(xu)</th>
+            <th>f(xr)</th>
+            <th>Σ %</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <footer class="mt-5 text-center">
+    <p>Code on <b><a href="https://github.com/DevAboAli" class="text-black">Github</a></b></p>
+  </footer>
+
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      const functionInput = document.getElementById("exampleDataList");
+      const x0Input = document.getElementById("x0");
+      const x1Input = document.getElementById("x1");
+      const errorInput = document.getElementById("errorInput");
+      const maxIterInput = document.getElementById("maxIterInput");
+
+      const useErrorRadio = document.getElementById("useError");
+      const useMaxIterRadio = document.getElementById("useMaxIter");
+
+      const showBtn = document.querySelector("img[src='/images/download (1).svg']");
+      const clearBtn = document.querySelector("img[src='/images/download.svg']");
+
+      const rootValue = document.getElementById("rootValue");
+      const resultTableContainer = document.getElementById("resultTableContainer");
+      const resultTable = document.getElementById("resultTable");
+      const tableBody = resultTable.querySelector("tbody");
+
+      function parseFunction(funcStr) {
+        try {
+          new Function("x", `return ${funcStr.replace(/x/g, "(x)")};`);
+          return function(x) {
+            return eval(funcStr.replace(/x/g, `(${x})`));
+          };
+        } catch (e) {
+          throw new Error("Invalid function.");
+        }
+      }
+
+      function bisectionMethod(fxStr, xl, xu, eps = null, maxIter = null) {
+        const f = parseFunction(fxStr);
+        let xr = 0, xrOld = 0, error = 100;
+        let data = [];
+        let i = 0;
+
+        while (true) {
+          xrOld = xr;
+          xr = (xl + xu) / 2;
+          error = i === 0 ? 100 : Math.abs((xr - xrOld) / xr) * 100;
+
+          let fxl = f(xl);
+          let fxu = f(xu);
+          let fxr = f(xr);
+
+          data.push({ i, xl, xu, xr, fxl, fxu, fxr, error });
+
+          if (fxl * fxr < 0) xu = xr;
+          else xl = xr;
+
+          i++;
+
+          if ((eps !== null && error < eps) || (maxIter !== null && i >= maxIter)) {
+            break;
+          }
+        }
+
+        return data;
+      }
+
+      function renderTable(data) {
+  tableBody.innerHTML = "";
+  data.forEach((row, idx) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${row.i}</td>
+      <td>${row.xl.toFixed(6)}</td>
+      <td>${row.xu.toFixed(6)}</td>
+      <td class="${idx === data.length - 1 ? 'root' : ''}">
+        ${idx === data.length - 1 ? `<span class='badge bg-info'>${row.xr.toFixed(6)}</span>` : row.xr.toFixed(6)}
+      </td>
+      <td>${row.fxl.toExponential(2)}</td>
+      <td>${row.fxu.toExponential(2)}</td>
+      <td>${row.fxr.toExponential(2)}</td>
+      <td>${row.i === 0 ? '____' : row.error.toFixed(2) + ' %'}</td>
+    `;
+    tableBody.appendChild(tr);
+  });
+}
+
+      showBtn.addEventListener("click", () => {
+        const func = functionInput.value.trim();
+        const xl = parseFloat(x0Input.value);
+        const xu = parseFloat(x1Input.value);
+        const eps = !errorInput.disabled ? parseFloat(errorInput.value) : null;
+        const maxIter = !maxIterInput.disabled ? parseInt(maxIterInput.value) : null;
+
+        if (!func || isNaN(xl) || isNaN(xu)) {
+          alert("Please enter a valid function and valid Xu, Xl values.");
+          return;
+        }
+
+        if (useErrorRadio.checked && (isNaN(eps) || eps <= 0)) {
+          alert("Please enter a valid error value.");
+          return;
+        }
+
+        if (useMaxIterRadio.checked && (isNaN(maxIter) || maxIter <= 0)) {
+          alert("Please enter a valid max iteration value.");
+          return;
+        }
+
+        try {
+          parseFunction(func);
+          const results = bisectionMethod(func, xl, xu, eps, maxIter);
+          renderTable(results);
+
+          const lastRoot = results[results.length - 1].xr.toFixed(6);
+          rootValue.textContent = `Root is: ${lastRoot}`;
+          rootValue.classList.remove("d-none");
+          resultTableContainer.classList.remove("d-none");
+        } catch (err) {
+          alert("Error in function evaluation. Please check your input.");
+          console.error(err);
+        }
+      });
+
+      clearBtn.addEventListener("click", () => {
+        functionInput.value = "";
+        x0Input.value = "";
+        x1Input.value = "";
+        errorInput.value = "";
+        maxIterInput.value = "";
+
+        if (useErrorRadio.checked) {
+          errorInput.disabled = false;
+          maxIterInput.disabled = true;
+        } else if (useMaxIterRadio.checked) {
+          maxIterInput.disabled = false;
+          errorInput.disabled = true;
+        }
+
+        tableBody.innerHTML = "";
+        rootValue.classList.add("d-none");
+        resultTableContainer.classList.add("d-none");
+      });
+
+      useErrorRadio.addEventListener("change", () => {
+        errorInput.disabled = false;
+        maxIterInput.disabled = true;
+        maxIterInput.value = "";
+      });
+
+      useMaxIterRadio.addEventListener("change", () => {
+        maxIterInput.disabled = false;
+        errorInput.disabled = true;
+        errorInput.value = "";
+      });
+    });
+  </script>
+</body>
+</html>
