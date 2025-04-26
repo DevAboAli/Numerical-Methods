@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -197,5 +197,330 @@
   </script>
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+</body>
+</html> -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Numerical Methods - Fixed Point Iteration</title>
+  <link rel="stylesheet" href="../bootstrap-5.3.3-dist/css/bootstrap.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@100;200;300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    body { font-family: 'IBM Plex Mono', monospace; }
+    .icons img { cursor: pointer; width: 24px; height: 24px; margin-left: 10px; }
+    .badge.bg-info { color: #fff; }
+    .table th, .table td { vertical-align: middle; }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-light bg-light fixed-top shadow">
+    <div class="container-fluid">
+      <span class="navbar-collapse mb-2 h2 mx-5 px-5 text-danger">EGISTA</span>
+    </div>
+  </nav>
+
+  <main class="container p-4 rounded-4 my-3 mt-5 w-100 w-md-75">
+    <div class="py-5 g-3 p-4 mx-auto w-100 w-md-75">
+      <h1>Simple Fixed Point Iteration Method</h1>
+      <p>Online tool to find a real root of an equation `x = g(x)` using the Fixed Point Iteration method.</p>
+       <p><strong>Note:</strong> Ensure your `g(x)` function is entered using JavaScript math syntax (e.g., `Math.cos(x)`, `Math.exp(x)`, `x**2` for x squared).</p>
+    </div>
+
+    <div class="py-5 g-3 p-4 mx-auto w-100 w-md-75">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+        <h2>Calculator</h2>
+        <div class="icons mt-3 mt-md-0">
+          <img src="../images/download.svg" id="clearBtn" alt="Clear icon" title="Clear Inputs & Results" style="cursor:pointer" />
+          <img src="../images/download (1).svg" id="calculateBtn" alt="Calculate icon" title="Calculate Root" style="cursor:pointer" />
+        </div>
+      </div>
+      <div class="inputs py-3">
+        <input class="form-control mb-3" id="gxInput" placeholder="Enter g(x) where x = g(x)..." list="datalistOptions" />
+        <datalist id="datalistOptions">
+           <option value="Math.cos(x)">
+           <option value="(x**2 + 3)/5">
+           <option value="1 / (x+1)">
+           <option value="Math.exp(-x)">
+        </datalist>
+
+        <div class="row mt-3 gy-3 align-items-center">
+          <div class="col-12 col-md-4">
+            <input type="number" step="any" class="form-control" id="x0Input" placeholder="Enter x₀..." />
+          </div>
+          <div class="col-12 col-md-4">
+            <div class="d-flex align-items-center gap-2">
+              <input class="form-check-input" type="radio" name="methodType" id="useError" value="error" checked>
+              <label class="form-check-label" for="useError">Error</label>
+              <input type="number" step="any" class="form-control" id="errorInput" placeholder="e.g., 0.001" />
+            </div>
+          </div>
+          <div class="col-12 col-md-4">
+            <div class="d-flex align-items-center gap-2">
+              <input class="form-check-input" type="radio" name="methodType" id="useMaxIter" value="maxIter">
+              <label class="form-check-label" for="useMaxIter">Iter</label>
+              <input type="number" class="form-control" id="maxIterInput" placeholder="e.g., 50" disabled />
+            </div>
+          </div>
+        </div>
+         <div id="alertBox" class="alert alert-danger d-none mt-3" role="alert"></div>
+      </div>
+    </div>
+
+    <div class="table-responsive d-none" id="resultTableContainer">
+      <h2 class="text-center">Solution</h2>
+      <p id="rootValue" style="text-align: center; font-weight: bold;" class="d-none mb-3"></p>
+      <table id="resultTable" class="table table-bordered table-hover w-100 w-md-75 m-auto text-center caption-top">
+          <caption>Iteration Details</caption>
+        <thead class="table-light">
+          <tr>
+            <th>i</th>
+            <th>xᵢ</th>
+            <th>xᵢ₊₁ = g(xᵢ)</th>
+            <th>Rel. Err. (%)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <footer class="mt-5 text-center">
+    <p>Code on <b><a href="https://github.com/DevAboAli" class="text-black">Github</a></b></p>
+  </footer>
+
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+        const gxInput = document.getElementById("gxInput");
+        const x0Input = document.getElementById("x0Input"); // Changed ID for consistency
+        const errorInput = document.getElementById("errorInput");
+        const maxIterInput = document.getElementById("maxIterInput");
+        const useErrorRadio = document.getElementById("useError"); // Changed variable name
+        const useMaxIterRadio = document.getElementById("useMaxIter"); // Changed variable name
+        const calcBtn = document.getElementById("calculateBtn");
+        const clearBtn = document.getElementById("clearBtn");
+
+        const tableContainer = document.getElementById("resultTableContainer");
+        const tableBody = document.querySelector("#resultTable tbody");
+        const rootValue = document.getElementById("rootValue");
+        const alertBox = document.getElementById("alertBox");
+
+        function showAlert(message) {
+            alertBox.textContent = message;
+            alertBox.classList.remove('d-none');
+        }
+
+        function hideAlert() {
+            alertBox.classList.add('d-none');
+        }
+
+        function parseFunction(funcStr) {
+            let safeStr = funcStr.replace(/\^/g, '**');
+            safeStr = safeStr.replace(/\b(cos|sin|tan|exp|log|sqrt|abs|pow|acos|asin|atan)\b/g, 'Math.$1');
+            safeStr = safeStr.replace(/pi\b/g, 'Math.PI');
+            safeStr = safeStr.replace(/e\b/g, 'Math.E');
+
+            if (/[^a-zA-Z0-9\s\.\+\-\*\/\(\)\_\^]/.test(safeStr.replace(/Math\./g, ''))) {
+               console.warn("Potentially unsafe characters detected in function string:", safeStr);
+            }
+
+            try {
+                const func = new Function("x", `"use strict"; return ${safeStr};`);
+                func(1);
+                return func;
+            } catch (e) {
+                console.error("Error parsing function:", e);
+                throw new Error(`Invalid function syntax. Check operators (use ** for power) and functions (e.g., Math.cos(x)). Original error: ${e.message}`);
+            }
+        }
+
+        function formatNumber(num, precision = 6) {
+            if (isNaN(num)) return '---';
+            if (Math.abs(num) < 1e-6 && num !== 0) {
+                 return num.toExponential(precision - 2);
+            }
+            return Number(num.toFixed(precision));
+        }
+
+        function fixedPointIteration(gxStr, x0_in, tolerance = null, maxIterations = null) {
+            let g;
+            try {
+                g = parseFunction(gxStr);
+            } catch (e) {
+                throw e;
+            }
+
+            let xi = x0_in;
+            let error = 100.0;
+            let i = 0;
+            const results = [];
+            const internalMaxIter = 500; // Internal safety limit
+
+            // Use provided maxIterations or default internal limit
+            const limit = maxIterations !== null ? maxIterations : internalMaxIter;
+
+            if (tolerance === null && maxIterations === null) {
+                 throw new Error("Either error tolerance or max iterations must be provided.");
+            }
+
+            while (i < limit) {
+                const xi_plus_1 = g(xi);
+
+                if (isNaN(xi_plus_1) || !isFinite(xi_plus_1)) {
+                     throw new Error(`Iteration ${i+1}: g(x) resulted in NaN or Infinity. Check function g(x) and initial guess x₀.`);
+                }
+
+                if (i > 0) { // Calculate error starting from the first iteration result
+                    if (Math.abs(xi_plus_1) > 1e-10) { // Avoid division by zero/small number
+                         error = Math.abs((xi_plus_1 - xi) / xi_plus_1) * 100;
+                    } else {
+                         // If xi_plus_1 is near zero, use absolute difference or consider error zero
+                         error = Math.abs(xi_plus_1 - xi) < 1e-10 ? 0 : 100;
+                    }
+                } else {
+                    error = 100.0; // No error for the very first step (before first g(x) calc)
+                }
+
+                results.push({ i: i + 1, xi: xi, gxi: xi_plus_1, error: i === 0 ? NaN : error }); // Store results
+
+                // Check stopping criteria
+                let stop = false;
+                if (tolerance !== null && error < tolerance && i > 0) { // Need at least one iteration for error calc
+                    stop = true;
+                }
+                // Note: The `i < limit` in the while condition already handles max iterations check.
+
+                if (stop) break;
+
+                // Prepare for next iteration
+                xi = xi_plus_1;
+                i++;
+            }
+
+            if (i === limit && tolerance !== null && error >= tolerance) {
+                // Reached limit without converging to tolerance
+                console.warn(`Maximum iterations (${limit}) reached without converging to the desired tolerance (${tolerance}%). Last error: ${error.toFixed(4)}%`);
+                 // Optionally throw an error here instead of just warning
+            }
+
+            return results;
+        }
+
+
+        function renderTable(data) {
+            tableBody.innerHTML = "";
+            if (!data || data.length === 0) {
+                rootValue.textContent = "No iterations performed or method failed.";
+                rootValue.classList.remove("d-none");
+                tableContainer.classList.add("d-none");
+                return;
+            }
+
+            data.forEach((row, idx) => {
+                const tr = document.createElement("tr");
+                const isLastRow = idx === data.length - 1;
+                if (isLastRow) {
+                    tr.classList.add('table-info');
+                }
+
+                tr.innerHTML = `
+                    <td>${row.i}</td>
+                    <td>${formatNumber(row.xi)}</td>
+                    <td>${formatNumber(row.gxi)} ${isLastRow ? "<span class='badge bg-primary ms-1'>Root</span>" : ""}</td>
+                    <td>${isNaN(row.error) ? '---' : formatNumber(row.error, 2) + ' %'}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+
+            const lastRow = data[data.length - 1];
+            const lastRoot = lastRow.gxi; // The result of the last iteration is the root estimate
+            rootValue.textContent = `Approximate Root: ${formatNumber(lastRoot, 8)} (found after ${lastRow.i} iterations, Error ≈ ${isNaN(lastRow.error) ? 'N/A' : formatNumber(lastRow.error, 2)}%)`;
+            rootValue.classList.remove("d-none");
+            tableContainer.classList.remove("d-none");
+        }
+
+
+        clearBtn.addEventListener("click", () => {
+            hideAlert();
+            gxInput.value = "";
+            x0Input.value = "";
+            errorInput.value = "";
+            maxIterInput.value = "";
+
+            useErrorRadio.checked = true;
+            errorInput.disabled = false;
+            maxIterInput.disabled = true;
+
+            tableBody.innerHTML = "";
+            tableContainer.classList.add("d-none");
+            rootValue.classList.add("d-none");
+        });
+
+        calcBtn.addEventListener("click", () => {
+             hideAlert();
+             const gxStr = gxInput.value.trim();
+             const x0 = parseFloat(x0Input.value);
+             const tolerance = !errorInput.disabled ? parseFloat(errorInput.value) : null;
+             const maxIterations = !maxIterInput.disabled ? parseInt(maxIterInput.value, 10) : null;
+
+             // --- Validation ---
+             if (!gxStr) { showAlert("Please enter a function g(x)."); return; }
+             if (isNaN(x0)) { showAlert("Please enter a valid number for x₀."); return; }
+
+             if (useErrorRadio.checked && (isNaN(tolerance) || tolerance <= 0)) {
+                 showAlert("Please enter a valid positive error tolerance (e.g., 0.001)."); return;
+             }
+             if (useMaxIterRadio.checked && (isNaN(maxIterations) || maxIterations <= 0)) {
+                 showAlert("Please enter a valid positive integer for max iterations (e.g., 50)."); return;
+             }
+             if (!useErrorRadio.checked && !useMaxIterRadio.checked) {
+                 showAlert("Please select a stopping criterion (Error or Iterations)."); return;
+             }
+             // --- End Validation ---
+
+
+             try {
+                 const results = fixedPointIteration(gxStr, x0, tolerance, maxIterations);
+                 renderTable(results);
+             } catch (err) {
+                 showAlert(`Error: ${err.message}`);
+                 console.error(err);
+                 tableBody.innerHTML = "";
+                 rootValue.classList.add("d-none");
+                 tableContainer.classList.add("d-none");
+             }
+        });
+
+        // Radio button listeners
+        useErrorRadio.addEventListener("change", () => {
+            if (useErrorRadio.checked) {
+                errorInput.disabled = false;
+                maxIterInput.disabled = true;
+                maxIterInput.value = "";
+            }
+        });
+
+        useMaxIterRadio.addEventListener("change", () => {
+            if (useMaxIterRadio.checked) {
+                maxIterInput.disabled = false;
+                errorInput.disabled = true;
+                errorInput.value = "";
+            }
+        });
+
+        // Initial setup
+        if (useErrorRadio.checked) {
+            errorInput.disabled = false;
+            maxIterInput.disabled = true;
+        } else {
+            errorInput.disabled = true;
+            maxIterInput.disabled = false;
+        }
+    });
+  </script>
+
 </body>
 </html>
