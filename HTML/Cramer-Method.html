@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -6,11 +6,9 @@
   <title>Numerical Methods</title>
   <link rel="stylesheet" href="../CSS/methods.css" />
   <link rel="stylesheet" href="../bootstrap-5.3.3-dist/css/bootstrap.min.css" />
-  <!-- fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@100;200;300;400;500;600;700&display=swap" rel="stylesheet"/>
-  <!-- fonts -->
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -158,6 +156,217 @@
 
         document.getElementById("result").innerHTML = "Solution";
         document.getElementById("steps").innerHTML = steps;
+      }
+
+      function clearInputs() {
+        const ids = ["a11", "a12", "a13", "a21", "a22", "a23", "a31", "a32", "a33", "b1", "b2", "b3"];
+        ids.forEach(id => document.getElementById(id).value = "");
+        document.getElementById("result").innerHTML = "";
+        document.getElementById("steps").innerHTML = "";
+      }
+    </script>
+</body>
+</html>
+
+
+
+ -->
+
+
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Numerical Methods</title>
+  <link rel="stylesheet" href="../CSS/methods.css" />
+  <link rel="stylesheet" href="../bootstrap-5.3.3-dist/css/bootstrap.min.css" />
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@100;200;300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <!-- fonts -->
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    table {
+      width: 100%;
+      margin-top: 20px;
+    }
+    table td {
+      padding: 10px;
+      text-align: center;
+    }
+    .matrix {
+      margin: 20px 0;
+      border: 1px solid black;
+      text-align: center;
+      display: inline-block; /* Changed for better spacing */
+      margin-right: 15px; /* Added spacing between matrices */
+      vertical-align: top; /* Align matrices nicely */
+    }
+    .matrix th {
+        padding: 5px 10px;
+        background-color: #f0f0f0;
+        border-bottom: 1px solid black;
+    }
+    .matrix td {
+      border: 1px solid #ccc; /* Lighter border */
+      padding: 8px 12px;
+      min-width: 50px; /* Ensure columns have some width */
+    }
+    .solution {
+      font-size:24px; /* Adjusted size */
+      font-weight: bold;
+      text-align: center;
+      margin-top: 30px;
+      color: #007bff;
+    }
+    .steps {
+      margin-top: 20px;
+      padding: 15px; /* Increased padding */
+      background-color: #f8f9fa;
+      border: 1px solid #e0e0e0; /* Added border */
+      border-radius: 5px;
+      line-height: 1.6; /* Improved readability */
+    }
+    .steps br + br { /* Add space between calculation steps */
+        content: "";
+        display: block;
+        margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-light bg-light fixed-top shadow">
+    <div class="container-fluid">
+      <span class="navbar-collapse mb-2 h2 mx-5 px-5 text-danger">EGISTA</span>
+    </div>
+  </nav>
+
+  <main class="container p-4 rounded-4 my-3 mt-5 w-100 w-md-75">
+    <div class="py-5 g-3 p-4 mx-auto w-100 w-md-75">
+      <h1>Cramer's Rule Method</h1>
+      <p class="lead">Enter the coefficients of the 3x3 system of linear equations Ax = b.</p>
+    </div>
+    <div class="py-5 g-3 p-4 mx-auto w-100 w-md-75">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+        <h2>Calculator</h2>
+      </div>
+      <form id="matrixForm">
+        <p>Enter the augmented matrix [A | b]:</p>
+        <table class=" rounded-4">
+          <tr>
+            <td><input id="a11" type="number" step="any" class="form-control" placeholder="a11"></td>
+            <td><input id="a12" type="number" step="any" class="form-control" placeholder="a12"></td>
+            <td><input id="a13" type="number" step="any" class="form-control" placeholder="a13"></td>
+            <td><input id="b1" type="number" step="any" class="form-control" placeholder="b1"></td>
+          </tr>
+          <tr>
+            <td><input id="a21" type="number" step="any" class="form-control" placeholder="a21"></td>
+            <td><input id="a22" type="number" step="any" class="form-control" placeholder="a22"></td>
+            <td><input id="a23" type="number" step="any" class="form-control" placeholder="a23"></td>
+            <td><input id="b2" type="number" step="any" class="form-control" placeholder="b2"></td>
+          </tr>
+          <tr>
+            <td><input id="a31" type="number" step="any" class="form-control" placeholder="a31"></td>
+            <td><input id="a32" type="number" step="any" class="form-control" placeholder="a32"></td>
+            <td><input id="a33" type="number" step="any" class="form-control" placeholder="a33"></td>
+            <td><input id="b3" type="number" step="any" class="form-control" placeholder="b3"></td>
+          </tr>
+        </table>
+
+        <div class="m-auto btns d-flex justify-content-center rounded-4">
+          <button type="button" class="btn btn-secondary w-25 m-3" onclick="clearInputs()">Clear</button>
+          <button type="button" class="btn btn-danger w-25 m-3" onclick="solveCramer()">Solve</button>
+        </div>
+      </form>
+
+      <div id="result" class="solution"></div>
+      <div id="steps" class="steps"></div>
+    </div>
+    <footer class="mt-5 text-center">
+      <p>Code on <b><a href="https://github.com/DevAboAli" class="text-black">Github</a></b></p>
+    </footer>
+
+    <script>
+      function solveCramer() {
+        const ids = ["a11", "a12", "a13", "a21", "a22", "a23", "a31", "a32", "a33", "b1", "b2", "b3"];
+        const values = ids.map(id => parseFloat(document.getElementById(id).value));
+
+        if (values.some(isNaN)) {
+            document.getElementById("result").innerHTML = "Error: Please enter valid numbers in all fields.";
+            document.getElementById("steps").innerHTML = "";
+            return;
+        }
+
+        const [a11, a12, a13, a21, a22, a23, a31, a32, a33, b1, b2, b3] = values;
+
+        let steps = "";
+
+        const det = m => (
+            m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
+            m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
+            m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+        );
+
+        const formatNumber = num => {
+             // Handle very small numbers close to zero and format others
+             if (Math.abs(num) < 1e-10) return 0;
+             // Adjust formatting precision as needed
+             return Number(num.toFixed(6)); // Using more precision internally might help
+        };
+
+        const displayMatrix = (matrix, name) => {
+            let table = `<table class="matrix"><tr><th colspan="3">${name}</th></tr>`;
+            matrix.forEach(row => {
+                table += "<tr>";
+                row.forEach(val => table += `<td>${formatNumber(val)}</td>`);
+                table += "</tr>";
+            });
+            table += "</table>";
+            return table;
+        };
+
+        const A = [[a11, a12, a13], [a21, a22, a23], [a31, a32, a33]];
+        steps += "Coefficient Matrix A:<br>" + displayMatrix(A, "A");
+        const detA = det(A);
+        steps += `Determinant of A, det(A) = ${formatNumber(detA)}<br><br>`;
+
+        // Use a small threshold for checking if determinant is zero
+        if (Math.abs(detA) < 1e-10) {
+            document.getElementById("result").innerHTML = "System may have no unique solution (det(A) is close to zero).";
+            document.getElementById("steps").innerHTML = steps;
+            return;
+        }
+
+        const A1 = [[b1, a12, a13], [b2, a22, a23], [b3, a32, a33]];
+        steps += "Matrix A1 (replace column 1 with b):<br>" + displayMatrix(A1, "A1");
+        const detA1 = det(A1);
+        steps += `Determinant of A1, det(A1) = ${formatNumber(detA1)}<br><br>`;
+
+        const A2 = [[a11, b1, a13], [a21, b2, a23], [a31, b3, a33]];
+        steps += "Matrix A2 (replace column 2 with b):<br>" + displayMatrix(A2, "A2");
+        const detA2 = det(A2);
+        steps += `Determinant of A2, det(A2) = ${formatNumber(detA2)}<br><br>`;
+
+        const A3 = [[a11, a12, b1], [a21, a22, b2], [a31, a32, b3]];
+        steps += "Matrix A3 (replace column 3 with b):<br>" + displayMatrix(A3, "A3");
+        const detA3 = det(A3);
+        steps += `Determinant of A3, det(A3) = ${formatNumber(detA3)}<br><br>`;
+
+        const x = detA1 / detA;
+        const y = detA2 / detA;
+        const z = detA3 / detA;
+
+        steps += `Calculating the solutions:<br>`;
+        steps += `x = det(A1) / det(A) = ${formatNumber(detA1)} / ${formatNumber(detA)} = ${formatNumber(x)}<br>`;
+        steps += `y = det(A2) / det(A) = ${formatNumber(detA2)} / ${formatNumber(detA)} = ${formatNumber(y)}<br>`;
+        steps += `z = det(A3) / det(A) = ${formatNumber(detA3)} / ${formatNumber(detA)} = ${formatNumber(z)}<br>`;
+
+        document.getElementById("result").innerHTML = `Solution: x = ${formatNumber(x)}, y = ${formatNumber(y)}, z = ${formatNumber(z)}`;
+        document.getElementById("steps").innerHTML = "<h3>Calculation Steps:</h3>" + steps;
       }
 
       function clearInputs() {
