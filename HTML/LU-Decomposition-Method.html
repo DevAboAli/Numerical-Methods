@@ -1,681 +1,536 @@
-
-
-
-<!DOCTYPE html>
-<html>
-<head>
-<title>LU Decomposition Solver</title>
-<style>
-  body { font-family: monospace; margin: 20px; }
-  label { margin-left: 5px; cursor: pointer; }
-  .method-option { margin-bottom: 10px; display: flex; align-items: center; }
-  h2 { margin-bottom: 15px; }
-  button { margin-top: 15px; padding: 8px 15px; cursor: pointer; }
-  pre { background-color: #f4f4f4; padding: 15px; border: 1px solid #ccc; margin-top: 20px; white-space: pre-wrap; word-wrap: break-word; }
-  .error { color: red; font-weight: bold; }
-  .warning { color: orange; }
-  .info { color: blue; }
-  .result-label { font-weight: bold; margin-top: 10px; }
-  .output-section { margin-top: 15px; }
-  .step-label { color: #006400; margin-top: 10px; display: block; }
-  .swap-info { color: #555; font-style: italic; margin-left: 10px; }
-</style>
-</head>
-<body>
-
-<h2>Select method:</h2>
-
-<form id="solverForm">
-  <div class="method-option">
-    <input type="radio" id="lu_simple" name="method" value="simple" checked>
-    <label for="lu_simple">LU Decomposition</label>
-  </div>
-  <div class="method-option">
-    <input type="radio" id="lu_pivot" name="method" value="pivot">
-    <label for="lu_pivot">LU Decomposition with Partial Pivoting</label>
-  </div>
-  <br>
-  <button type="button" onclick="runSolver()">Run Selected Method</button>
-</form>
-
-<pre id="output">Output will appear here. Check the browser console for detailed steps if needed.</pre>
-
-<script>
-const N_EQ = 3;
-const TOLERANCE = 1e-9;
-
-function commonParseEquation(eq, eqNum) {
-  const logPrefix = `[Eq ${eqNum} Parser]`;
-  if (!eq) {
-    console.error(`${logPrefix} Error: Empty input.`);
-    alert(`${logPrefix} Error: Empty input provided.`);
-    return null;
-  }
-  eq = eq.replace(/\s+/g, "");
-  const parts = eq.split("=");
-  if (parts.length !== 2) {
-    console.error(`${logPrefix} Invalid format: Equation "${eq}" needs exactly one '='.`);
-    alert(`${logPrefix} Invalid format: Equation "${eq}" needs exactly one '='.`);
-    return null;
-  }
-  let [left, right] = parts;
-
-  const constant = parseFloat(right);
-  if (isNaN(constant)) {
-     console.error(`${logPrefix} Invalid format: Could not parse RHS constant '${right}'.`);
-     alert(`${logPrefix} Invalid format: Could not parse RHS constant '${right}'.`);
-     return null;
-  }
-
-  left = left.replace(/-/g, "+-");
-  if (left.startsWith('+-')) {
-      left = left.substring(1);
-  }
-
-  const coeffs = Array(N_EQ).fill(0);
-  const terms = left.split("+").filter(Boolean);
-  let parseOk = true;
-
-  terms.forEach(term => {
-    if (!parseOk) return;
-    const match = term.match(/^([+-]?\d*\.?\d*)?([xyz])$/);
-    if (match) {
-      let numStr = match[1];
-      const variable = match[2];
-      let value;
-      if (numStr === "+" || numStr === "" || numStr === undefined) value = 1.0;
-      else if (numStr === "-") value = -1.0;
-      else value = parseFloat(numStr);
-
-      if (isNaN(value)) {
-         console.warn(`${logPrefix} Warning: Could not parse coefficient '${numStr}' in term '${term}'.`);
-         alert(`${logPrefix} Warning: Could not parse coefficient '${numStr}' in term '${term}'. Equation invalid.`);
-         parseOk = false; return;
-      }
-      const varIndex = 'xyz'.indexOf(variable);
-      if (varIndex !== -1) coeffs[varIndex] += value;
-    } else if (term.match(/^[+-]?\d+\.?\d*$/)) {
-       console.warn(`${logPrefix} Warning: Constant term '${term}' found on LHS.`);
-       alert(`${logPrefix} Warning: Constant term '${term}' found on LHS. Please move all constants to the RHS.`);
-       parseOk = false; return;
-    } else if (term) {
-       console.warn(`${logPrefix} Warning: Term '${term}' on LHS ignored.`);
-       alert(`${logPrefix} Warning: Term '${term}' on LHS ignored (expected format like '2x', '-y', 'x'). Equation invalid.`);
-       parseOk = false; return;
-    }
-  });
-
-  if (!parseOk) return null;
-  coeffs.push(constant);
-  return coeffs.length !== N_EQ + 1 ? null : coeffs;
-}
-
-function formatNumber(num) {
-    if (typeof num !== 'number' || isNaN(num)) return ' NaN'.padStart(9);
-    if (Math.abs(num) < TOLERANCE / 10) return (0.0).toFixed(4).padStart(9);
-    return num.toFixed(4).padStart(9);
-}
-
-function matrixToString(name, mat, cols, isL = false, isAugmented = false) {
-  let str = `\n<span class="output-section result-label">${name}:</span>\n`;
-  if (!mat || mat.length === 0) return str + " (Empty/Invalid)\n";
-
-  const numRows = mat.length;
-  const numColsToDisplay = cols !== undefined ? cols : (mat[0] ? mat[0].length : numRows);
-
-  for(let i = 0; i < numRows; i++) {
-      const rowData = mat[i] ? mat[i] : Array(numColsToDisplay).fill(NaN);
-      str += rowData.slice(0, numColsToDisplay).map(formatNumber).join(" ");
-      if (isAugmented && mat[i] && mat[i].length > N_EQ) {
-          str += " |" + formatNumber(mat[i][N_EQ]);
-      }
-      str += '\n';
-  }
-  return str;
-}
-
-
-function vectorToString(name, vec) {
-    let str = `\n<span class="output-section result-label">${name}:</span>\n`;
-    if (!vec || vec.length === 0) return str + " (Empty/Invalid)\n";
-    vec.forEach((val, index) => {
-        const variable = ['x', 'y', 'z'][index] || `x${index + 1}`;
-        str += ` ${variable}: ${formatNumber(val)}\n`;
-    });
-    return str;
-}
-
-function logOutput(message, type = 'info', toConsoleOnly = false) {
-    console.log(message.replace(/<[^>]*>/g, ''));
-    if (!toConsoleOnly) {
-        const outputElement = document.getElementById('output');
-        if (message.startsWith('\n<span') || message.startsWith('<span')) {
-             outputElement.innerHTML += message;
-        } else {
-            const span = document.createElement('span');
-            span.className = type;
-            span.textContent = message + '\n';
-            outputElement.appendChild(span);
-        }
-    }
-}
-
-function clearOutput() {
-    document.getElementById('output').textContent = '';
-}
-
-function runLuSimple() {
-  clearOutput();
-  logOutput("--- Running Simple LU Decomposition ---", "info result-label");
-  console.clear();
-  console.log("--- Running Simple LU Decomposition ---");
-
-  try {
-    let A = [];
-    logOutput("Enter the 3 equations (e.g., 2x + 3y - z = 5):", "info");
-    for (let i = 0; i < N_EQ; i++) {
-      let eq = prompt(`Enter equation ${i + 1}:`);
-      if (eq === null) { logOutput("Input cancelled.", "warning"); return; }
-      let parsedRow = commonParseEquation(eq, i + 1);
-      if (parsedRow === null) { logOutput(`Parse failed Eq ${i + 1}.`, "error"); return; }
-      A.push(parsedRow);
-    }
-    console.log("Initial Augmented Matrix A:");
-    console.log(matrixToString("A", A, N_EQ, false, true));
-
-    let U_aug = A.map(row => row.slice());
-    let L = Array(N_EQ).fill(0).map((_, i) => Array(N_EQ).fill(0).map((__, j) => (i === j ? 1.0 : 0.0)));
-
-    for (let k = 0; k < N_EQ - 1; k++) {
-        const pivot = U_aug[k][k];
-        if (Math.abs(pivot) < TOLERANCE) {
-            throw new Error(`Zero pivot at U[${k}][${k}]. Simple LU needs pivoting.`);
-        }
-        for (let i = k + 1; i < N_EQ; i++) {
-            const factor = U_aug[i][k] / pivot;
-            L[i][k] = factor;
-            for (let j = k; j < N_EQ + 1; j++) {
-                U_aug[i][j] -= factor * U_aug[k][j];
-                if (Math.abs(U_aug[i][j]) < TOLERANCE) U_aug[i][j] = 0.0;
-            }
-        }
-    }
-
-    if (Math.abs(U_aug[N_EQ - 1][N_EQ - 1]) < TOLERANCE) {
-        logOutput(`Warning: Pivot U[${N_EQ-1}][${N_EQ-1}] near zero. Potential issues.`, "warning");
-    }
-
-    logOutput("\n--- Decomposition Complete ---", "info", true);
-    logOutput(matrixToString("L (Lower Triangular)", L, N_EQ, true));
-    logOutput(matrixToString("U (Upper Triangular Augmented)", U_aug, N_EQ, false, true)); // Corrected call
-    console.log(matrixToString("L", L, N_EQ, true));
-    console.log(matrixToString("U Augmented", U_aug, N_EQ, false, true)); // Corrected call
-
-    console.log("\n--- Forward Substitution (Ly = b) ---");
-    let b = A.map(row => row[N_EQ]);
-    let y = Array(N_EQ).fill(0.0);
-    for (let i = 0; i < N_EQ; i++) {
-        let sumLy = 0;
-        for (let j = 0; j < i; j++) sumLy += L[i][j] * y[j];
-        y[i] = b[i] - sumLy;
-    }
-    console.log(vectorToString("y", y));
-
-    console.log("\n--- Back Substitution (Ux = y) ---");
-    let x = Array(N_EQ).fill(0.0);
-    for (let i = N_EQ - 1; i >= 0; i--) {
-        const pivot_U = U_aug[i][i];
-        if (Math.abs(pivot_U) < TOLERANCE) {
-             throw new Error(`Zero pivot U[${i}][${i}] during back-substitution.`);
-        }
-        let sumUx = 0;
-        for (let j = i + 1; j < N_EQ; j++) sumUx += U_aug[i][j] * x[j];
-        x[i] = (y[i] - sumUx) / pivot_U;
-         if (Math.abs(x[i]) < TOLERANCE) x[i] = 0.0;
-    }
-
-    logOutput(vectorToString("x (Final Solution)", x));
-    console.log(vectorToString("x", x));
-
-  } catch (error) {
-      logOutput(`Execution failed: ${error.message}`, "error");
-      console.error("Error during Simple LU:", error);
-  }
-}
-
-function runLuWithPivot() {
-  clearOutput();
-  logOutput("--- Running LU Decomposition with Partial Pivoting ---", "info result-label");
-  console.clear();
-  console.log("--- Running LU Decomposition with Partial Pivoting ---");
-
-  try {
-    const A_orig = [];
-    logOutput("Enter the 3 equations:", "info");
-    for (let i = 0; i < N_EQ; i++) {
-      let eq = prompt(`Enter equation ${i + 1}:`);
-       if (eq === null) { logOutput("Input cancelled.", "warning"); return; }
-       let row = commonParseEquation(eq, i + 1);
-       if (row === null) { logOutput(`Parse failed Eq ${i + 1}.`, "error"); return; }
-      A_orig.push(row);
-    }
-
-    let A = A_orig.map(row => row.slice());
-    let L = Array(N_EQ).fill(0).map((_, i) => Array(N_EQ).fill(0).map((__, j) => (i === j ? 1.0 : 0.0)));
-    let P = Array(N_EQ).fill(0).map((_, i) => i);
-    let b_orig = A_orig.map(row => row[N_EQ]);
-
-    // *** CORRECTED CALL for initial augmented A ***
-    logOutput(matrixToString("Initial Augmented Matrix A", A, N_EQ, false, true));
-    console.log("Initial Augmented Matrix A:");
-    console.log(matrixToString("A", A, N_EQ, false, true)); // Corrected call
-    console.log(`Initial P: [${P.join(', ')}]`);
-
-
-    for (let k = 0; k < N_EQ - 1; k++) {
-        logOutput(`<span class="step-label">--- Step k=${k} ---</span>`);
-        let maxRowIdx = k;
-        for (let i = k + 1; i < N_EQ; i++) {
-            if (Math.abs(A[i][k]) > Math.abs(A[maxRowIdx][k])) {
-                maxRowIdx = i;
-            }
-        }
-
-        if (maxRowIdx !== k) {
-            logOutput(`<span class="swap-info">Swap: Swapping row ${k+1} with row ${maxRowIdx+1}</span>`);
-
-            [A[k], A[maxRowIdx]] = [A[maxRowIdx], A[k]];
-
-            for(let j=0; j < k; j++) {
-                [L[k][j], L[maxRowIdx][j]] = [L[maxRowIdx][j], L[k][j]];
-            }
-
-            [P[k], P[maxRowIdx]] = [P[maxRowIdx], P[k]];
-            logOutput(`<span class="swap-info">  New P: [${P.join(', ')}]</span>`);
-            // *** CORRECTED CALL for augmented A after swap ***
-            logOutput(matrixToString("A after swap", A, N_EQ, false, true));
-            console.log(`--- Swap Step k=${k} ---`);
-            console.log(` Swapped display rows ${k+1} and ${maxRowIdx+1}`);
-            console.log(` New P: [${P.join(', ')}]`);
-            console.log(matrixToString("A after swap", A, N_EQ, false, true)); // Corrected call
-            console.log(matrixToString("L after swap", L, N_EQ, true));
-        } else {
-             logOutput(`<span class="swap-info">No swap needed for k=${k}.</span>`);
-        }
-
-        const pivot = A[k][k];
-        if (Math.abs(pivot) < TOLERANCE) {
-           console.warn(`Warning: Near-zero pivot ${pivot.toFixed(4)} at A[${k}][${k}] after pivoting. System might be singular.`);
-           logOutput(`<span class="warning">Warning: Near-zero pivot detected at A[${k}][${k}]. Skipping elimination for this step.</span>`);
-           continue;
-        }
-
-        logOutput(`<span class="info">Elimination using pivot A[${k+1}][${k+1}] = ${pivot.toFixed(4)}</span>`);
-        for (let i = k + 1; i < N_EQ; i++) {
-            const factor = A[i][k] / pivot;
-            L[i][k] = factor;
-            logOutput(`<span class="info">  L[${i+1}][${k+1}] = ${factor.toFixed(4)}</span>`, 'info', true);
-            for (let j = k; j < N_EQ + 1; j++) {
-                A[i][j] -= factor * A[k][j];
-                 if (Math.abs(A[i][j]) < TOLERANCE) A[i][j] = 0.0;
-            }
-        }
-
-        // *** CORRECTED CALL for augmented A after elimination ***
-        logOutput(matrixToString(`A after elimination step k=${k}`, A, N_EQ, false, true));
-        console.log(`--- After Elimination Step k=${k} (Pivot=${pivot.toFixed(4)}) ---`);
-        console.log(matrixToString("A (intermediate)", A, N_EQ, false, true)); // Corrected call
-        console.log(matrixToString("L (intermediate)", L, N_EQ, true));
-
-    }
-
-    let U = A.map(row => row.slice(0, N_EQ));
-
-     if (Math.abs(A[N_EQ - 1][N_EQ - 1]) < TOLERANCE) {
-        logOutput(`Warning: Final pivot U[${N_EQ - 1}][${N_EQ - 1}] near zero. Potential issues.`, "warning", true);
-    }
-
-    logOutput("\n<span class='step-label'>--- Decomposition Complete ---</span>");
-    logOutput(matrixToString("Final L (Lower Triangular)", L, N_EQ, true));
-    logOutput(matrixToString("Final U (Upper Triangular)", U, N_EQ));
-    logOutput(`<span class="info">Final Permutation P: [${P.join(', ')}]</span>`);
-    console.log(matrixToString("Final L", L, N_EQ, true));
-    console.log(matrixToString("Final U", U, N_EQ));
-    console.log(`Final P: [${P.join(', ')}]`);
-
-    let Pb = P.map(original_row_index => b_orig[original_row_index]);
-    console.log("\n--- Forward Substitution (Ly = Pb) ---");
-    console.log(vectorToString("b_orig", b_orig));
-    console.log(vectorToString("Pb", Pb));
-
-    let y = Array(N_EQ).fill(0.0);
-    for (let i = 0; i < N_EQ; i++) {
-        let sumLy = 0;
-        for (let j = 0; j < i; j++) {
-             sumLy += L[i][j] * y[j];
-        }
-        y[i] = Pb[i] - sumLy;
-    }
-    console.log(vectorToString("Intermediate y", y));
-
-    console.log("\n--- Back Substitution (Ux = y) ---");
-    let x = Array(N_EQ).fill(0.0);
-    for (let i = N_EQ - 1; i >= 0; i--) {
-         const pivot_U = A[i][i];
-         if (Math.abs(pivot_U) < TOLERANCE) {
-             throw new Error(`Zero pivot U[${i}][${i}] = ${pivot_U.toFixed(4)} during back-substitution. No unique solution.`);
-         }
-        let sumUx = 0;
-        for (let j = i + 1; j < N_EQ; j++) {
-            sumUx += A[i][j] * x[j];
-        }
-        x[i] = (y[i] - sumUx) / pivot_U;
-         if (Math.abs(x[i]) < TOLERANCE) x[i] = 0.0;
-    }
-
-    logOutput(vectorToString("x (Final Solution)", x));
-    console.log("\n--- Final Solution ---");
-    console.log(vectorToString("x", x));
-
-  } catch (error) {
-      logOutput(`Execution failed: ${error.message}`, "error");
-      console.error("Error during LU with Pivoting execution:", error);
-  }
-}
-
-function runSolver() {
-  const selectedMethod = document.querySelector('input[name="method"]:checked').value;
-  if (selectedMethod === 'simple') {
-    runLuSimple();
-  } else if (selectedMethod === 'pivot') {
-    runLuWithPivot();
-  } else {
-    alert("Error: No method selected.");
-  }
-}
-
-</script>
-
-</body>
-</html>
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <link rel="stylesheet" href="../CSS/methods.css" />
-  <link rel="stylesheet" href="../bootstrap-5.3.3-dist/css/bootstrap.min.css" />
+  <title>LU Decomposition Solver</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@100;200;300;400;500;600;700&display=swap" rel="stylesheet"/>
+
   <style>
     body {
       font-family: 'IBM Plex Mono', monospace;
+      background-color: #f8f9fa;
+    }
+    main {
+        background-color: white;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        margin-top: 80px !important;
+    }
+    h1, h2, h4 {
+      color: #dc3545;
+    }
+    .navbar {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     table td input {
-      width: 80px;
-      text-align: center;
+      width: 90px;
+      text-align: center; /* Center numbers in input */
+      border: 1px solid #ced4da;
+      padding: 0.375rem 0.75rem;
     }
     table, th, td {
-      border: 1px solid #ddd;
-      padding: 8px;
+      border: 1px solid #dee2e6;
+      padding: 0.5rem;
+      vertical-align: middle;
     }
     table {
       width: 100%;
       margin-top: 20px;
       text-align: center;
+      border-collapse: collapse;
     }
-    h1, h2, h4 {
-      color: #dc3545;
+    #result table {
+        margin-bottom: 1.5rem;
     }
+    #result table td {
+         padding: 0.4rem 0.6rem;
+         font-size: 0.9em;
+         text-align: right; /* Right-align numbers in result tables */
+    }
+    #result table td:first-child {
+        text-align: center; /* Keep row labels centered if needed */
+    }
+    .result-label {
+        font-weight: bold;
+        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
+        color: #0d6efd;
+        display: block;
+        font-size: 1.1em;
+    }
+    .step-label {
+        color: #198754;
+        font-weight: bold;
+        margin-top: 1.5rem;
+        display: block;
+        border-top: 1px dashed #ccc;
+        padding-top: 1rem;
+    }
+    .swap-info {
+        color: #6c757d;
+        font-style: italic;
+        margin-left: 15px;
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+    .error { color: #dc3545; font-weight: bold; }
+    .warning { color: #ffc107; font-weight: bold; }
+    .info { color: #0dcaf0; }
+    .output-section { margin-top: 15px; }
+
+    #matrix-input td:nth-child(4) {
+        border-left: 2px solid #adb5bd;
+        padding-left: 1rem;
+    }
+     #result table.augmented td:nth-child(4) {
+        border-left: 1px solid #ccc;
+        padding-left: 0.8rem;
+     }
+
+     footer {
+        margin-top: 3rem;
+        padding: 1rem;
+        color: #6c757d;
+     }
+     #result .table td {
+        font-family: monospace; /* Use monospace for results too */
+     }
   </style>
 </head>
 <body>
-  <nav class="navbar navbar-light bg-light fixed-top shadow">
+  <nav class="navbar navbar-light bg-light fixed-top">
     <div class="container-fluid">
-      <span class="navbar-collapse mb-2 h2 mx-5 px-5 text-danger">EGISTA</span>
+      <span class="navbar-brand mb-0 h1 mx-auto text-danger fs-4">LU Decomposition Solver</span>
     </div>
   </nav>
 
   <main class="container p-4 rounded-4 my-3 mt-5 w-100 w-md-75">
-    <div class="py-5 g-3 p-4 mx-auto w-100 w-md-75">
+    <div class="py-4 px-md-4 mx-auto w-100 w-md-75">
       <h1>LU Decomposition</h1>
-      <p class="lead">Online tool to find the real root of a system of linear equations using LU Decomposition method.</p>
+      <p class="lead">Enter the coefficients of the 3x3 system of linear equations and the constant terms (Ax = b). Then, select the LU decomposition method and click Solve.</p>
     </div>
 
-    <div class="py-5 g-3 p-4 mx-auto w-100 w-md-75">
-      <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-        <h2>Calculator</h2>
-      </div>
-      
-      <table id="matrix-input" class="table table-bordered mt-3"></table>
-      <p>Select method:</p>
-
-      <div class="d-flex justify-content-between">
-        <div class="form-check form-check-inline">
-          <input class="form-check-input" type="radio" name="method" value="lu" checked>
-          <label class="form-check-label">LU Decomposition</label>
-        </div>
-        <div class="form-check form-check-inline">
-          <input class="form-check-input" type="radio" name="method" value="partial">
-          <label class="form-check-label">LU Decomposition with Partial Pivoting</label>
-        </div>
+    <div class="py-4 px-md-4 mx-auto w-100 w-md-75">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3">
+        <h2>Enter Matrix [A|b]</h2>
       </div>
 
-      <div class="m-auto bg-primar d-flex justify-content-center">
-        <button class="btn btn-secondary w-25 m-3" onclick="clearInputs()">Clear</button>
-        <button class="btn btn-danger w-25 m-3" onclick="solve()">Solve</button>  
+      <div class="table-responsive">
+          <table id="matrix-input" class="table table-bordered mt-2">
+              <thead>
+                  <tr>
+                      <th>x</th>
+                      <th>y</th>
+                      <th>z</th>
+                      <th>b</th>
+                  </tr>
+              </thead>
+              <tbody>
+              </tbody>
+          </table>
+      </div>
+
+      <p class="mt-4">Select method:</p>
+      <div class="mb-3">
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" id="method_simple" name="method" value="simple" checked>
+            <label class="form-check-label" for="method_simple">LU Decomposition</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" id="method_pivot" name="method" value="pivot">
+            <label class="form-check-label" for="method_pivot">LU Decomposition with Partial Pivoting</label>
+          </div>
+      </div>
+
+
+      <div class="d-flex justify-content-center gap-3 mt-4">
+        <button class="btn btn-secondary w-auto px-4" onclick="clearInputs()">Clear</button>
+        <button class="btn btn-danger w-auto px-4" onclick="solve()">Solve</button>
       </div>
     </div>
 
-    <div id="result" class="mt-5"></div>
+    <div id="result" class="mt-4 px-md-4 pb-4 mx-auto w-100 w-md-75">
+    </div>
   </main>
 
   <footer class="mt-5 text-center">
-    <p>Code on <b><a href="https://github.com/DevAboAli" class="text-black">Github</a></b></p>
+    <p>EGISTA Task | <a href="https://github.com/DevAboAli" target="_blank" class="text-black">DevAboAli</a></p>
   </footer>
 
   <script>
-    // Create 3x4 input matrix on load
+    const N_EQ = 3;
+    const TOLERANCE = 1e-9;
+
     window.onload = function () {
-      const matrixInput = document.getElementById("matrix-input");
-      for (let i = 0; i < 3; i++) {
+      const matrixTableBody = document.querySelector("#matrix-input tbody");
+      matrixTableBody.innerHTML = '';
+      for (let i = 0; i < N_EQ; i++) {
         const row = document.createElement("tr");
-        for (let j = 0; j < 4; j++) {
+        for (let j = 0; j < N_EQ + 1; j++) {
           const cell = document.createElement("td");
           const input = document.createElement("input");
           input.type = "number";
+          input.step = "any";
           input.id = `a${i}${j}`;
           input.classList.add("form-control");
-          input.value = "0";
+          input.value = "0"; // Default value is 0
           cell.appendChild(input);
           row.appendChild(cell);
         }
-        matrixInput.appendChild(row);
+        matrixTableBody.appendChild(row);
       }
     };
 
-    // Clear inputs and results
     function clearInputs() {
-      for (let i = 0; i < 3; i++) {
-        for (let j = 0; j < 4; j++) {
+      for (let i = 0; i < N_EQ; i++) {
+        for (let j = 0; j < N_EQ + 1; j++) {
           document.getElementById(`a${i}${j}`).value = "0";
         }
       }
       document.getElementById("result").innerHTML = "";
     }
 
-    // Display matrix as table
-    function displayMatrix(matrix, title = "") {
-      let html = title ? `<h4 class="text-center fs-3 my-4 fw-bold">${title}</h4>` : "";
-      html += "<table class='table table-bordered'>";
-      matrix.forEach(row => {
-        html += "<tr>";
-        row.forEach((val, idx) => {
-          let cell = (idx === 3 ? " | " : "") + val.toFixed(2);
-          html += `<td>${cell}</td>`;
-        });
-        html += "</tr>";
-      });
-      html += "</table>";
+    function formatNumber(num) {
+        if (typeof num !== 'number' || isNaN(num)) return 'NaN';
+        if (Math.abs(num) < TOLERANCE / 10 && num !== 0) return "0.0000";
+        if (Math.abs(num) > 1e6 || (Math.abs(num) < 1e-3 && num !== 0)) return num.toExponential(3);
+        return num.toFixed(4);
+    }
+
+    function formatMatrixAsHTMLTable(name, mat, cols, isL = false, isAugmented = false) {
+      let html = `<div class="output-section"><span class="result-label">${name}:</span>`;
+      if (!mat || mat.length === 0) return html + "<p>(Empty/Invalid)</p></div>";
+
+      const numRows = mat.length;
+      const numColsToDisplay = cols !== undefined ? cols : (mat[0] ? mat[0].length : numRows);
+      const tableClass = isAugmented ? "table table-bordered table-sm augmented" : "table table-bordered table-sm";
+
+      html += `<div class="table-responsive"><table class='${tableClass}'><tbody>`;
+      for(let i = 0; i < numRows; i++) {
+          html += "<tr>";
+          const rowData = mat[i] ? mat[i] : Array(numColsToDisplay).fill(NaN);
+          for (let j = 0; j < numColsToDisplay; j++) {
+             html += `<td>${formatNumber(rowData[j])}</td>`;
+          }
+          if (isAugmented && mat[i] && mat[i].length > N_EQ) {
+              html += `<td>${formatNumber(mat[i][N_EQ])}</td>`;
+          }
+          html += '</tr>';
+      }
+      html += '</tbody></table></div></div>';
       return html;
     }
 
-    // LU Decomposition without Pivoting
-    function luDecomposition(a) {
-      const n = a.length;
-      let l = Array(n).fill().map(() => Array(n).fill(0));
-      let u = Array(n).fill().map(() => Array(n).fill(0));
-      for (let i = 0; i < n; i++) {
-        l[i][i] = 1;  // diagonal of L is 1
-
-        for (let j = i; j < n; j++) {
-          u[i][j] = a[i][j];
-          for (let k = 0; k < i; k++) {
-            u[i][j] -= l[i][k] * u[k][j];
-          }
-        }
-
-        for (let j = i + 1; j < n; j++) {
-          l[j][i] = a[j][i];
-          for (let k = 0; k < i; k++) {
-            l[j][i] -= l[j][k] * u[k][i];
-          }
-          l[j][i] /= u[i][i];
-        }
-      }
-      return { l, u };
+    function formatVectorAsHTML(name, vec) {
+        let html = `<div class="output-section"><span class="result-label">${name}:</span>`;
+        if (!vec || vec.length === 0) return html + "<p>(Empty/Invalid)</p></div>";
+        html += "<div style='margin-left: 15px;'>";
+        vec.forEach((val, index) => {
+            const variable = ['x', 'y', 'z'][index] || `var${index + 1}`;
+            html += `<div>${variable}: <span style="font-family: monospace;">${formatNumber(val)}</span></div>`;
+        });
+        html += "</div></div>";
+        return html;
     }
 
-    // LU Decomposition with Partial Pivoting
-    function partialPivotingLUDecomposition(a) {
-      const n = a.length;
-      let l = Array(n).fill().map(() => Array(n).fill(0));
-      let u = Array(n).fill().map(() => Array(n).fill(0));
-      let perm = Array(n).fill().map((_, i) => i);  // permutation vector
+    function runLuSimple(A_input, b_input) {
+      let resultsHTML = `<h2>--- Simple LU Decomposition Results ---</h2>`;
+      console.clear();
+      console.log("--- Running Simple LU Decomposition ---");
 
-      for (let i = 0; i < n; i++) {
-        l[i][i] = 1;  // diagonal of L is 1
+      try {
+          let A_aug = A_input.map((row, i) => [...row, b_input[i]]);
+          resultsHTML += formatMatrixAsHTMLTable("Initial Augmented Matrix [A|b]", A_aug, N_EQ, false, true);
+          console.log("Initial Augmented Matrix A:");
+          console.log(A_aug.map(r => r.map(formatNumber).join(' ')).join('\n'));
 
-        // Pivoting: find the row with the largest element in column i
-        let maxRow = i;
-        for (let j = i + 1; j < n; j++) {
-          if (Math.abs(a[j][i]) > Math.abs(a[maxRow][i])) {
-            maxRow = j;
+          let U_aug = A_aug.map(row => row.slice());
+          let L = Array(N_EQ).fill(0).map((_, i) => Array(N_EQ).fill(0).map((__, j) => (i === j ? 1.0 : 0.0)));
+
+          for (let k = 0; k < N_EQ - 1; k++) {
+              resultsHTML += `<span class="step-label">Elimination Step k=${k}</span>`;
+              const pivot = U_aug[k][k];
+              if (Math.abs(pivot) < TOLERANCE) {
+                  throw new Error(`Zero or near-zero pivot encountered at U[${k}][${k}] = ${formatNumber(pivot)}. Simple LU cannot proceed. Use Pivoting.`);
+              }
+              resultsHTML += `<div class="info">Using pivot U[${k+1}][${k+1}] = ${formatNumber(pivot)}</div>`;
+
+              for (let i = k + 1; i < N_EQ; i++) {
+                  const factor = U_aug[i][k] / pivot;
+                  L[i][k] = factor;
+                  resultsHTML += `<div class="info" style="margin-left: 15px;">Row ${i+1} -= (${formatNumber(factor)}) * Row ${k+1}  => L[${i+1}][${k+1}] = ${formatNumber(factor)}</div>`;
+                  for (let j = k; j < N_EQ + 1; j++) {
+                      U_aug[i][j] -= factor * U_aug[k][j];
+                      if (Math.abs(U_aug[i][j]) < TOLERANCE) U_aug[i][j] = 0.0;
+                  }
+              }
+               resultsHTML += formatMatrixAsHTMLTable(`Augmented Matrix after step k=${k}`, U_aug, N_EQ, false, true);
+               console.log(`--- After Elimination Step k=${k} ---`);
+               console.log(U_aug.map(r => r.map(formatNumber).join(' ')).join('\n'));
+               console.log("L matrix (intermediate):");
+               console.log(L.map(r => r.map(formatNumber).join(' ')).join('\n'));
           }
-        }
 
-        // Swap rows in A
-        if (i !== maxRow) {
-          [a[i], a[maxRow]] = [a[maxRow], a[i]];  // Swap rows
-          perm[i] = maxRow;
-        }
-
-        for (let j = i; j < n; j++) {
-          u[i][j] = a[i][j];
-          for (let k = 0; k < i; k++) {
-            u[i][j] -= l[i][k] * u[k][j];
+          const finalPivot = U_aug[N_EQ - 1][N_EQ - 1];
+          if (Math.abs(finalPivot) < TOLERANCE) {
+               resultsHTML += `<p class="warning">Warning: Final pivot U[${N_EQ - 1}][${N_EQ - 1}] = ${formatNumber(finalPivot)} is near zero. System might be singular or ill-conditioned.</p>`;
+               console.warn(`Warning: Final pivot U[${N_EQ - 1}][${N_EQ - 1}] near zero.`);
           }
-        }
 
-        for (let j = i + 1; j < n; j++) {
-          l[j][i] = a[j][i];
-          for (let k = 0; k < i; k++) {
-            l[j][i] -= l[j][k] * u[k][i];
+          resultsHTML += `<span class="step-label">--- Decomposition Complete ---</span>`;
+          resultsHTML += formatMatrixAsHTMLTable("Final L (Lower Triangular)", L, N_EQ, true);
+          resultsHTML += formatMatrixAsHTMLTable("Final U (Upper Triangular, Augmented)", U_aug, N_EQ, false, true);
+          console.log("--- Decomposition Complete ---");
+          console.log("Final L:");
+          console.log(L.map(r => r.map(formatNumber).join(' ')).join('\n'));
+          console.log("Final U (Augmented):");
+          console.log(U_aug.map(r => r.map(formatNumber).join(' ')).join('\n'));
+
+          resultsHTML += `<span class="step-label">--- Forward Substitution (Ly = b) ---</span>`;
+          console.log("\n--- Forward Substitution (Ly = b) ---");
+          let y = Array(N_EQ).fill(0.0);
+          for (let i = 0; i < N_EQ; i++) {
+              let sumLy = 0;
+              for (let j = 0; j < i; j++) {
+                   sumLy += L[i][j] * y[j];
+              }
+              y[i] = b_input[i] - sumLy;
+              resultsHTML += `<div class="info" style="margin-left: 15px;">y[${i+1}] = b[${i+1}] - sum(L[${i+1}][j]*y[j]) = ${formatNumber(b_input[i])} - ${formatNumber(sumLy)} = ${formatNumber(y[i])}</div>`;
           }
-          l[j][i] /= u[i][i];
-        }
+          resultsHTML += formatVectorAsHTML("Intermediate vector y", y);
+          console.log("y:", y.map(formatNumber).join(' '));
+
+          resultsHTML += `<span class="step-label">--- Back Substitution (Ux = y) ---</span>`;
+          console.log("\n--- Back Substitution (Ux = y) ---");
+          let x = Array(N_EQ).fill(0.0);
+          for (let i = N_EQ - 1; i >= 0; i--) {
+              const pivot_U = U_aug[i][i];
+              if (Math.abs(pivot_U) < TOLERANCE) {
+                   throw new Error(`Zero pivot U[${i}][${i}] encountered during back-substitution. Cannot find a unique solution.`);
+              }
+              let sumUx = 0;
+              for (let j = i + 1; j < N_EQ; j++) {
+                  sumUx += U_aug[i][j] * x[j];
+              }
+              x[i] = (y[i] - sumUx) / pivot_U;
+              if (Math.abs(x[i]) < TOLERANCE) x[i] = 0.0;
+              resultsHTML += `<div class="info" style="margin-left: 15px;">x[${i+1}] = (y[${i+1}] - sum(U[${i+1}][j]*x[j])) / U[${i+1}][${i+1}] = (${formatNumber(y[i])} - ${formatNumber(sumUx)}) / ${formatNumber(pivot_U)} = ${formatNumber(x[i])}</div>`;
+          }
+
+          resultsHTML += formatVectorAsHTML("Final Solution x", x);
+          console.log("Final Solution x:", x.map(formatNumber).join(' '));
+
+      } catch (error) {
+          resultsHTML += `<p class="error">Execution failed: ${error.message}</p>`;
+          console.error("Error during Simple LU:", error);
       }
-      return { l, u, perm };
+      return resultsHTML;
     }
 
-    // Forward substitution
-    function forwardSubstitution(l, b) {
-      const n = l.length;
-      let y = Array(n).fill(0);
-      for (let i = 0; i < n; i++) {
-        y[i] = b[i];
-        for (let j = 0; j < i; j++) {
-          y[i] -= l[i][j] * y[j];
-        }
-        y[i] /= l[i][i];
+    function runLuWithPivot(A_input, b_input) {
+      let resultsHTML = `<h2>--- LU Decomposition with Partial Pivoting Results ---</h2>`;
+      console.clear();
+      console.log("--- Running LU Decomposition with Partial Pivoting ---");
+
+      try {
+          let A = A_input.map(row => row.slice());
+          let b_orig = b_input.slice();
+          let L = Array(N_EQ).fill(0).map((_, i) => Array(N_EQ).fill(0).map((__, j) => (i === j ? 1.0 : 0.0)));
+          let P = Array(N_EQ).fill(0).map((_, i) => i);
+
+          let A_aug_display = A.map((row, i) => [...row, b_orig[i]]);
+
+          resultsHTML += formatMatrixAsHTMLTable("Initial Augmented Matrix [A|b]", A_aug_display, N_EQ, false, true);
+          resultsHTML += `<div class="output-section"><span class="result-label">Initial Permutation P:</span><div>[${P.map(x => x + 1).join(', ')}] (indices)</div></div>`;
+          console.log("Initial Augmented Matrix A:");
+          console.log(A_aug_display.map(r => r.map(formatNumber).join(' ')).join('\n'));
+          console.log(`Initial P: [${P.join(', ')}]`);
+
+          for (let k = 0; k < N_EQ - 1; k++) {
+              resultsHTML += `<span class="step-label">--- Step k=${k} ---</span>`;
+              console.log(`--- Step k=${k} ---`);
+
+              let maxRowIdx = k;
+              for (let i = k + 1; i < N_EQ; i++) {
+                  if (Math.abs(A[i][k]) > Math.abs(A[maxRowIdx][k])) {
+                      maxRowIdx = i;
+                  }
+              }
+
+              if (maxRowIdx !== k) {
+                   resultsHTML += `<div class="swap-info">Pivot Search: Max element in column ${k+1} (below row ${k+1}) found in row ${maxRowIdx+1}. Swapping row ${k+1} with row ${maxRowIdx+1}.</div>`;
+                   console.log(` Swap: Swapping row ${k} with row ${maxRowIdx}`);
+
+                  [A[k], A[maxRowIdx]] = [A[maxRowIdx], A[k]];
+                  [A_aug_display[k], A_aug_display[maxRowIdx]] = [A_aug_display[maxRowIdx], A_aug_display[k]];
+
+                  for(let j = 0; j < k; j++) {
+                      [L[k][j], L[maxRowIdx][j]] = [L[maxRowIdx][j], L[k][j]];
+                  }
+
+                  [P[k], P[maxRowIdx]] = [P[maxRowIdx], P[k]];
+                  resultsHTML += `<div class="swap-info">  New Permutation P: [${P.map(x => x + 1).join(', ')}]</div>`;
+                  resultsHTML += formatMatrixAsHTMLTable("Matrix after swap", A_aug_display, N_EQ, false, true);
+
+                  console.log(`  New P: [${P.join(', ')}]`);
+                  console.log("  A after swap (coefficients):");
+                  console.log(A.map(r => r.map(formatNumber).join(' ')).join('\n'));
+                  console.log("  L after swap:");
+                  console.log(L.map(r => r.map(formatNumber).join(' ')).join('\n'));
+              } else {
+                  resultsHTML += `<div class="swap-info">No swap needed for k=${k}. Pivot is A[${k+1}][${k+1}].</div>`;
+                  console.log(` No swap needed for k=${k}.`);
+              }
+
+              const pivot = A[k][k];
+              if (Math.abs(pivot) < TOLERANCE) {
+                  resultsHTML += `<p class="warning">Warning: Near-zero pivot ${formatNumber(pivot)} at A[${k}][${k}] encountered after pivoting. System might be singular. Continuing, but solution may not be unique/exist.</p>`;
+                  console.warn(`Warning: Near-zero pivot ${formatNumber(pivot)} at A[${k}][${k}] after pivoting.`);
+                  continue;
+              }
+
+               resultsHTML += `<div class="info">Elimination using pivot A[${k+1}][${k+1}] = ${formatNumber(pivot)}</div>`;
+              for (let i = k + 1; i < N_EQ; i++) {
+                  const factor = A[i][k] / pivot;
+                  L[i][k] = factor;
+                  resultsHTML += `<div class="info" style="margin-left: 15px;">Row ${i+1} -= (${formatNumber(factor)}) * Row ${k+1} => L[${i+1}][${k+1}] = ${formatNumber(factor)}</div>`;
+
+                  for (let j = k; j < N_EQ; j++) {
+                      A[i][j] -= factor * A[k][j];
+                      if (Math.abs(A[i][j]) < TOLERANCE) A[i][j] = 0.0;
+                  }
+                  for (let j = k; j < N_EQ; j++) {
+                       A_aug_display[i][j] = A[i][j];
+                  }
+              }
+              resultsHTML += formatMatrixAsHTMLTable(`Matrix after elimination step k=${k}`, A_aug_display, N_EQ, false, true);
+              console.log(`--- After Elimination Step k=${k} ---`);
+              console.log("A (coefficients, evolving towards U):");
+              console.log(A.map(r => r.map(formatNumber).join(' ')).join('\n'));
+              console.log("L (intermediate):");
+              console.log(L.map(r => r.map(formatNumber).join(' ')).join('\n'));
+          }
+
+          let U = A;
+
+          const finalPivot = U[N_EQ - 1][N_EQ - 1];
+           if (Math.abs(finalPivot) < TOLERANCE) {
+               resultsHTML += `<p class="warning">Warning: Final pivot U[${N_EQ - 1}][${N_EQ - 1}] = ${formatNumber(finalPivot)} is near zero. System might be singular or ill-conditioned.</p>`;
+               console.warn(`Warning: Final pivot U[${N_EQ - 1}][${N_EQ - 1}] near zero.`);
+          }
+
+          resultsHTML += `<span class="step-label">--- Decomposition Complete (PA = LU) ---</span>`;
+          resultsHTML += formatMatrixAsHTMLTable("Final L (Lower Triangular)", L, N_EQ, true);
+          resultsHTML += formatMatrixAsHTMLTable("Final U (Upper Triangular)", U, N_EQ);
+          resultsHTML += `<div class="output-section"><span class="result-label">Final Permutation P (maps original row index to permuted row index):</span><div>[${P.map(x => x + 1).join(', ')}]</div></div>`;
+          console.log("--- Decomposition Complete ---");
+          console.log("Final L:");
+          console.log(L.map(r => r.map(formatNumber).join(' ')).join('\n'));
+          console.log("Final U:");
+          console.log(U.map(r => r.map(formatNumber).join(' ')).join('\n'));
+          console.log(`Final P: [${P.join(', ')}]`);
+
+          let Pb = Array(N_EQ);
+          for(let i=0; i<N_EQ; i++){
+              Pb[i] = b_orig[P[i]];
+          }
+          resultsHTML += formatVectorAsHTML("Original b", b_orig);
+          resultsHTML += formatVectorAsHTML("Permuted b (Pb)", Pb);
+          console.log("\nOriginal b:", b_orig.map(formatNumber).join(' '));
+          console.log("Permuted b (Pb):", Pb.map(formatNumber).join(' '));
+
+          resultsHTML += `<span class="step-label">--- Forward Substitution (Ly = Pb) ---</span>`;
+          console.log("\n--- Forward Substitution (Ly = Pb) ---");
+          let y = Array(N_EQ).fill(0.0);
+          for (let i = 0; i < N_EQ; i++) {
+              let sumLy = 0;
+              for (let j = 0; j < i; j++) {
+                   sumLy += L[i][j] * y[j];
+              }
+              y[i] = Pb[i] - sumLy;
+               resultsHTML += `<div class="info" style="margin-left: 15px;">y[${i+1}] = Pb[${i+1}] - sum(L[${i+1}][j]*y[j]) = ${formatNumber(Pb[i])} - ${formatNumber(sumLy)} = ${formatNumber(y[i])}</div>`;
+          }
+          resultsHTML += formatVectorAsHTML("Intermediate vector y", y);
+          console.log("y:", y.map(formatNumber).join(' '));
+
+          resultsHTML += `<span class="step-label">--- Back Substitution (Ux = y) ---</span>`;
+          console.log("\n--- Back Substitution (Ux = y) ---");
+          let x = Array(N_EQ).fill(0.0);
+          for (let i = N_EQ - 1; i >= 0; i--) {
+              const pivot_U = U[i][i];
+              if (Math.abs(pivot_U) < TOLERANCE) {
+                   throw new Error(`Zero pivot U[${i}][${i}] = ${formatNumber(pivot_U)} encountered during back-substitution. Cannot find a unique solution.`);
+              }
+              let sumUx = 0;
+              for (let j = i + 1; j < N_EQ; j++) {
+                  sumUx += U[i][j] * x[j];
+              }
+              x[i] = (y[i] - sumUx) / pivot_U;
+              if (Math.abs(x[i]) < TOLERANCE) x[i] = 0.0;
+               resultsHTML += `<div class="info" style="margin-left: 15px;">x[${i+1}] = (y[${i+1}] - sum(U[${i+1}][j]*x[j])) / U[${i+1}][${i+1}] = (${formatNumber(y[i])} - ${formatNumber(sumUx)}) / ${formatNumber(pivot_U)} = ${formatNumber(x[i])}</div>`;
+          }
+
+          resultsHTML += formatVectorAsHTML("Final Solution x", x);
+          console.log("\n--- Final Solution ---");
+          console.log("x:", x.map(formatNumber).join(' '));
+
+      } catch (error) {
+          resultsHTML += `<p class="error">Execution failed: ${error.message}</p>`;
+          console.error("Error during LU with Pivoting:", error);
       }
-      return y;
+      return resultsHTML;
     }
 
-    // Back substitution
-    function backSubstitution(u, y) {
-      const n = u.length;
-      let x = Array(n).fill(0);
-      for (let i = n - 1; i >= 0; i--) {
-        x[i] = y[i];
-        for (let j = i + 1; j < n; j++) {
-          x[i] -= u[i][j] * x[j];
-        }
-        x[i] /= u[i][i];
-      }
-      return x;
-    }
-
-    // Solve matrix using LU Decomposition
     function solve() {
-      let a = [...Array(3)].map(() => Array(4).fill(0));
-      let b = [0, 0, 0];
-      let steps = "";
+      let A = [...Array(N_EQ)].map(() => Array(N_EQ).fill(0));
+      let b = Array(N_EQ).fill(0);
+      let resultsHTML = "";
+      const resultDiv = document.getElementById("result");
+      resultDiv.innerHTML = '<div class="d-flex justify-content-center align-items-center mt-3"><div class="spinner-border text-danger" role="status"><span class="visually-hidden">Loading...</span></div><strong class="ms-2">Calculating...</strong></div>';
 
-      // Read matrix values and the right-hand side (b values)
-      for (let i = 0; i < 3; i++) {
-        for (let j = 0; j < 3; j++) {
-          a[i][j] = parseFloat(document.getElementById(`a${i}${j}`).value);
-        }
-        b[i] = parseFloat(document.getElementById(`a${i}3`).value); // last column is b
+
+      try {
+          let inputValid = true;
+          for (let i = 0; i < N_EQ; i++) {
+              for (let j = 0; j < N_EQ; j++) {
+                  const val = parseFloat(document.getElementById(`a${i}${j}`).value);
+                  if (isNaN(val)) {
+                      inputValid = false;
+                      throw new Error(`Invalid input at A[${i+1}][${j+1}]`);
+                  }
+                  A[i][j] = val;
+              }
+              const bVal = parseFloat(document.getElementById(`a${i}${N_EQ}`).value);
+               if (isNaN(bVal)) {
+                  inputValid = false;
+                  throw new Error(`Invalid input at b[${i+1}]`);
+              }
+              b[i] = bVal;
+          }
+
+          const selectedMethod = document.querySelector('input[name="method"]:checked').value;
+
+          if (selectedMethod === 'simple') {
+              resultsHTML = runLuSimple(A, b);
+          } else if (selectedMethod === 'pivot') {
+              resultsHTML = runLuWithPivot(A, b);
+          } else {
+              resultsHTML = '<p class="error">Error: No valid method selected.</p>';
+          }
+
+      } catch(error) {
+           resultsHTML = `<p class="error">Input Error: ${error.message}. Please enter valid numbers.</p>`;
+           console.error("Input Error:", error);
+      } finally {
+          setTimeout(() => {
+             resultDiv.innerHTML = resultsHTML;
+          }, 100);
       }
-
-      steps += displayMatrix(a, "Initial Matrix");
-
-      // Select method (LU Decomposition or Partial Pivoting)
-      const method = document.querySelector('input[name="method"]:checked').value;
-      let l, u, perm;
-
-      if (method === "partial") {
-        const result = partialPivotingLUDecomposition(a);
-        l = result.l;
-        u = result.u;
-        perm = result.perm;
-        steps += "<h4>Permutation Vector (P):</h4>" + displayMatrix([perm], "P");
-      } else {
-        const result = luDecomposition(a);
-        l = result.l;
-        u = result.u;
-      }
-
-      steps += displayMatrix(l, "Lower Matrix (L)");
-      steps += displayMatrix(u, "Upper Matrix (U)");
-
-      // Forward substitution to solve for y
-      let y = forwardSubstitution(l, b);
-
-      // Back substitution to solve for x
-      let x = backSubstitution(u, y);
-
-      steps += `<h3>Solutions:</h3>`;
-      steps += `x = ${x[0].toFixed(2)}<br>`;
-      steps += `y = ${x[1].toFixed(2)}<br>`;
-      steps += `z = ${x[2].toFixed(2)}<br>`;
-
-      document.getElementById("result").innerHTML = steps;
     }
   </script>
+   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
