@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -221,6 +221,328 @@
       useMaxIterRadio.addEventListener("change", () => {
         errorInput.disabled = true;
         maxIterInput.disabled = false;
+      });
+    });
+  </script>
+</body>
+</html> -->
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Secant Method</title>
+  <link rel="stylesheet" href="../CSS/methods.css" />
+  <link rel="stylesheet" href="../bootstrap-5.3.3-dist/css/bootstrap.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=swap" rel="stylesheet"/>
+    <style>
+        .badge { font-size: 0.9em; }
+        .form-check-label { margin-left: 0.25rem; margin-right: 0.5rem;}
+    </style>
+</head>
+<body>
+  <nav class="navbar navbar-light bg-light fixed-top shadow">
+    <div class="container-fluid">
+      <span class="navbar-collapse mb-2 h2 mx-5 px-5 text-danger">EGISTA</span>
+    </div>
+  </nav>
+
+  <main class="container p-4 rounded-4 my-5 mt-5 w-100 w-md-75">
+    <div class="py-5 g-3 p-4 mx-auto w-100 w-md-75">
+        <h1>Secant Method</h1>
+        <p>Online tool to find real root of nonlinear equation using Secant Method.</p>
+    </div>
+
+    <section class="mb-5">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3">
+        <h2>Calculator</h2>
+        <div class="icons mt-3 mt-md-0 d-flex gap-3">
+          <img src="../images/download.svg" alt="Clear" role="button" id="clearBtn" title="Clear Inputs"/>
+          <img src="../images/download (1).svg" alt="Calculate" role="button" id="calculateBtn" title="Calculate"/>
+        </div>
+      </div>
+
+      <div class="inputs">
+        <input class="form-control mb-3" list="datalistOptions" id="functionInput" placeholder="Enter function f(x)... e.g., x**3 - x - 1" />
+        <datalist id="datalistOptions">
+          <option value="x**4 - 3*x**2 + 1.5*x - 3">
+          <option value="x**3 - x - 2">
+          <option value="Math.cos(x) - x">
+          <option value="Math.exp(-x) - x">
+          <option value="x*Math.sin(x) - 1">
+        </datalist>
+
+        <div class="row mt-3 gy-3">
+          <div class="col-12 col-md-3">
+            <input type="number" class="form-control" id="x_im1_Input" placeholder="Enter Xi-1..." step="any"/>
+          </div>
+          <div class="col-12 col-md-3">
+            <input type="number" class="form-control" id="x_i_Input" placeholder="Enter Xi..." step="any"/>
+          </div>
+          <div class="col-12 col-md-3">
+            <div class="d-flex align-items-center gap-2">
+              <input class="form-check-input" type="radio" name="methodType" id="useError" value="error" checked>
+              <label class="form-check-label" for="useError">Error (%)</label>
+              <input type="number" class="form-control" id="errorInput" placeholder="e.g., 0.01" step="any">
+            </div>
+          </div>
+          <div class="col-12 col-md-3">
+            <div class="d-flex align-items-center gap-2">
+              <input class="form-check-input" type="radio" name="methodType" id="useMaxIter" value="maxIter">
+               <label class="form-check-label" for="useMaxIter">Max Iter</label>
+              <input type="number" class="form-control" id="maxIterInput" placeholder="e.g., 10" disabled>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="table d-none" id="resultTableContainer">
+      <h2 class="text-center">Solution</h2>
+      <p id="rootValue" class="text-end d-none fw-bold text-success">Root is:</p>
+      <table id="resultTable" class="table table-bordered table-hover w-100 w-md-75 mx-auto text-center table-striped">
+        <thead class="table-dark">
+          <tr>
+            <th>i</th>
+            <th>Xi-1</th>
+            <th>Xi</th>
+            <th>f(Xi-1)</th>
+            <th>f(Xi)</th>
+            <th>Xi+1</th>
+            <th>Error (%)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+       <p id="statusMessage" class="text-center mt-3"></p>
+    </section>
+  </main>
+
+  <footer class="mt-5 text-center py-4 bg-light">
+    <p>Code on <b><a href="https://github.com/DevAboAli" class="text-black">GitHub</a></b></p>
+  </footer>
+
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      const functionInput = document.getElementById("functionInput");
+      const x_im1_Input = document.getElementById("x_im1_Input");
+      const x_i_Input = document.getElementById("x_i_Input");
+      const errorInput = document.getElementById("errorInput");
+      const maxIterInput = document.getElementById("maxIterInput");
+      const useErrorRadio = document.getElementById("useError");
+      const useMaxIterRadio = document.getElementById("useMaxIter");
+      const calculateBtn = document.getElementById("calculateBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const rootValue = document.getElementById("rootValue");
+      const resultTableContainer = document.getElementById("resultTableContainer");
+      const tableBody = resultTableContainer.querySelector("tbody");
+      const statusMessage = document.getElementById("statusMessage");
+
+       function formatNum(num, decimals = 6) {
+           if (isNaN(num) || !isFinite(num)) { return 'N/A'; }
+           return num.toFixed(decimals);
+       }
+
+      function parseFunction(funcStr) {
+        funcStr = funcStr.replace(/\^/g, "**");
+        funcStr = funcStr.replace(/-\s*x\*\*(\d+)/g, '-(x**$1)');
+        const mathFunctions = ['cos', 'sin', 'tan', 'exp', 'log', 'sqrt', 'pow', 'abs', 'acos', 'asin', 'atan', 'log10', 'log2'];
+        mathFunctions.forEach(m => {
+            const regex = new RegExp(`(?<![a-zA-Z0-9_\\.])${m}\\s*\\(`, 'g');
+            funcStr = funcStr.replace(regex, `Math.${m}(`);
+        });
+        funcStr = funcStr.replace(/(?<!Math\.)PI/gi, 'Math.PI');
+        funcStr = funcStr.replace(/(?<!Math\.)E/gi, 'Math.E');
+        funcStr = funcStr.replace(/(\d(?:\.\d+)?)(\s*)x/g, '$1*$2x');
+        funcStr = funcStr.replace(/(\))(\s*)x/g, '$1*$2x');
+        funcStr = funcStr.replace(/x(\s*)(\d)/g, 'x*$1$2');
+        funcStr = funcStr.replace(/x(\s*)(\()/g, 'x*$1$2');
+        console.log("Processed Secant function string:", funcStr);
+        try {
+            return new Function('x', `try { return ${funcStr}; } catch(e) { console.error("Eval Error @ x="+x+":", e, "Func:", funcStr); return NaN; }`);
+        } catch (e) {
+            console.error("Parsing Error:", e, "Processed:", funcStr);
+            throw new Error("Invalid function syntax.");
+        }
+      }
+
+      function secantMethod(fxStr, x_im1_start, x_i_start, eps = null, maxIter = null) {
+        const f = parseFunction(fxStr);
+        let x_im1 = x_im1_start;
+        let x_i = x_i_start;
+        let x_ip1;
+        let error = NaN;
+        const data = [];
+        let i = 0;
+        if (x_im1 === x_i) { throw new Error("Initial points Xi and Xi-1 cannot be the same."); }
+        const maxAllowedIter = 100;
+
+        while (true) {
+            if (i > 0) {
+                 if (isNaN(x_i) || isNaN(x_im1)) {
+                     error = NaN;
+                 } else if (Math.abs(x_i) < 1e-12) {
+                     error = Math.abs(x_i - x_im1);
+                 } else {
+                     error = Math.abs((x_i - x_im1) / x_i) * 100;
+                 }
+            } else {
+                error = NaN;
+            }
+
+            const fx_im1 = f(x_im1);
+            const fx_i = f(x_i);
+
+            if (isNaN(fx_im1) || isNaN(fx_i)) {
+                 data.push({ i, x_im1, x_i, fx_im1, fx_i, x_ip1: NaN, error });
+                 throw new Error(`f(x) is NaN at iteration ${i}: f(${formatNum(x_im1)})=${formatNum(fx_im1)}, f(${formatNum(x_i)})=${formatNum(fx_i)}.`);
+            }
+
+            const denominator = fx_i - fx_im1;
+            if (Math.abs(denominator) < 1e-15) {
+                data.push({ i, x_im1, x_i, fx_im1, fx_i, x_ip1: x_i, error });
+                throw new Error(`Denominator f(Xi)-f(Xi-1) near zero @ iter ${i}. Points may be identical or secant line horizontal.`);
+            }
+            x_ip1 = x_i - fx_i * (x_i - x_im1) / denominator;
+
+             if (isNaN(x_ip1) || !isFinite(x_ip1)) {
+                data.push({ i, x_im1, x_i, fx_im1, fx_i, x_ip1, error });
+                throw new Error(`Calculation resulted in Xi+1 = ${x_ip1} at iteration ${i}.`);
+            }
+
+            data.push({ i, x_im1, x_i, fx_im1, fx_i, x_ip1, error });
+
+            if ((eps !== null && !isNaN(error) && error < eps) || (maxIter !== null && i >= maxIter - 1) || i >= maxAllowedIter - 1) {
+                let stopReason = "";
+                 if (eps !== null && !isNaN(error) && error < eps) stopReason = "Error tolerance reached.";
+                 else if (maxIter !== null && i >= maxIter - 1) stopReason = `Max iterations (${maxIter}) reached.`;
+                 else if (i >= maxAllowedIter - 1) stopReason = `Safety limit (${maxAllowedIter}) reached.`;
+                 console.log("Stopping Reason:", stopReason);
+                break;
+            }
+
+            x_im1 = x_i;
+            x_i = x_ip1;
+            i++;
+        }
+        return data;
+      }
+
+      function renderTable(data) {
+        tableBody.innerHTML = "";
+        data.forEach((row) => {
+          const tr = document.createElement("tr");
+          const isLast = row.i === data[data.length - 1].i;
+          const errorDisplay = (row.i === 0 || isNaN(row.error)) ? '-' : formatNum(row.error, 2) + ' %';
+
+          tr.innerHTML = `
+            <td>${row.i}</td>
+            <td>${formatNum(row.x_im1)}</td>
+            <td>${formatNum(row.x_i)}</td>
+            <td>${formatNum(row.fx_im1)}</td>
+            <td>${formatNum(row.fx_i)}</td>
+            <td class="${isLast ? 'root' : ''}">
+              ${isLast ? `<span class='badge bg-info text-dark'>${formatNum(row.x_ip1)}</span>` : formatNum(row.x_ip1)}
+            </td>
+            <td>${errorDisplay}</td>
+          `;
+          tableBody.appendChild(tr);
+        });
+      }
+
+      calculateBtn.addEventListener("click", () => {
+        const funcStr = functionInput.value.trim();
+        const x_im1_val = parseFloat(x_im1_Input.value);
+        const x_i_val = parseFloat(x_i_Input.value);
+        const eps = !errorInput.disabled ? parseFloat(errorInput.value) : null;
+        const maxIter = !maxIterInput.disabled ? parseInt(maxIterInput.value) : null;
+
+        tableBody.innerHTML = ""; rootValue.classList.add("d-none");
+        resultTableContainer.classList.add("d-none"); statusMessage.textContent = "";
+        statusMessage.className = 'text-center mt-3';
+
+        if (!funcStr || isNaN(x_im1_val) || isNaN(x_i_val)) {
+          alert("Please enter a valid function and numeric values for Xi and Xi-1."); return;
+        }
+        if (x_im1_val === x_i_val) {
+            alert("Initial points Xi and Xi-1 must be different."); return;
+        }
+        if (useErrorRadio.checked && (isNaN(eps) || eps <= 0)) {
+          alert("Please enter a valid positive error tolerance (%)."); return;
+        }
+        if (useMaxIterRadio.checked && (isNaN(maxIter) || maxIter <= 0)) {
+          alert("Please enter a valid positive max iteration count."); return;
+        }
+
+        let results = [];
+        try {
+          results = secantMethod(funcStr, x_im1_val, x_i_val, eps, maxIter);
+
+          if (results && results.length > 0) {
+             renderTable(results);
+             const lastResult = results[results.length - 1];
+             const lastRoot = lastResult.x_ip1;
+             const finalError = lastResult.error;
+
+             if (eps !== null && !isNaN(finalError) && finalError < eps) {
+                 statusMessage.textContent = `Convergence likely achieved: Error (${formatNum(finalError, 2)}%) < Tolerance (${formatNum(eps, 2)}%).`;
+                 statusMessage.classList.add('text-success');
+             } else if (maxIter !== null && lastResult.i >= maxIter - 1) {
+                 statusMessage.textContent = `Stopped: Maximum iterations (${maxIter}) reached.`;
+             } else if (lastResult.i >= 100 - 1) {
+                 statusMessage.textContent = `Stopped: Safety limit (100 iterations) reached.`;
+                 statusMessage.classList.add('text-warning');
+             }
+
+             if (!isNaN(lastRoot) && isFinite(lastRoot)) {
+                rootValue.textContent = `Root ≈ ${formatNum(lastRoot)}`;
+                rootValue.classList.remove("d-none");
+             } else {
+                rootValue.textContent = "Final root is invalid (NaN/Infinity).";
+                 rootValue.classList.remove("d-none");
+                 statusMessage.textContent += " Calculation ended with invalid value.";
+                 statusMessage.classList.add('text-danger');
+             }
+             resultTableContainer.classList.remove("d-none");
+
+          } else {
+             statusMessage.textContent = "Calculation failed to produce results.";
+             statusMessage.classList.add('text-danger');
+          }
+
+        } catch (err) {
+            console.error(err);
+            statusMessage.textContent = "Calculation Error: " + err.message;
+            statusMessage.classList.add('text-danger');
+            if (results && results.length > 0) {
+                renderTable(results);
+                resultTableContainer.classList.remove("d-none");
+                rootValue.textContent = "Calculation stopped due to error.";
+                rootValue.classList.remove("d-none");
+            } else {
+                 resultTableContainer.classList.add("d-none");
+                 rootValue.classList.add("d-none");
+            }
+        }
+      });
+
+      clearBtn.addEventListener("click", () => {
+        functionInput.value = ""; x_im1_Input.value = ""; x_i_Input.value = "";
+        errorInput.value = ""; maxIterInput.value = "";
+        tableBody.innerHTML = ""; rootValue.classList.add("d-none");
+        resultTableContainer.classList.add("d-none"); statusMessage.textContent = "";
+        useErrorRadio.checked = true; errorInput.disabled = false; maxIterInput.disabled = true;
+      });
+
+      useErrorRadio.addEventListener("change", () => {
+        errorInput.disabled = false; maxIterInput.disabled = true; maxIterInput.value = "";
+      });
+
+      useMaxIterRadio.addEventListener("change", () => {
+        errorInput.disabled = true; maxIterInput.disabled = false; errorInput.value = "";
       });
     });
   </script>
