@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -6,11 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Newton Raphson Method</title>
   <link rel="stylesheet" href="../bootstrap-5.3.3-dist/css/bootstrap.min.css" />
-  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;700&display=swap" rel="stylesheet" />
-  <!-- Custom CSS -->
   <link rel="stylesheet" href="../CSS/methods.css" />
 </head>
 
@@ -176,4 +174,253 @@
   </script>
 </body>
 
+</html> -->
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Newton Raphson Method</title>
+    <link rel="stylesheet" href="../bootstrap-5.3.3-dist/css/bootstrap.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="../CSS/methods.css" />
+    <style>
+        .badge { font-size: 0.9em; }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-light bg-light fixed-top shadow">
+        <div class="container-fluid">
+            <span class="navbar-collapse mb-2 h2 mx-5 px-5 text-danger">EGISTA</span>
+        </div>
+    </nav>
+
+    <main class="container p-4 rounded-4 my-3 mt-5 w-100 w-md-75">
+        <div class="py-5 p-4 mx-auto">
+            <h1>Newton Raphson Method</h1>
+            <p>Online tool to find real root of nonlinear equation quickly using Newton Raphson method.</p>
+        </div>
+
+        <div class="py-5 p-4 mx-auto">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3">
+                <h2>Calculator</h2>
+                <div class="icons mt-3 mt-md-0">
+                    <img src="../images/download.svg" alt="Clear icon" id="clearIcon" style="cursor:pointer;"
+                        title="Clear Inputs" />
+                    <img src="../images/download (1).svg" alt="Calculate icon" id="calculateIcon" style="cursor:pointer;"
+                        title="Calculate" />
+                </div>
+            </div>
+
+            <input class="form-control mb-3" list="datalistOptions" id="exampleDataList"
+                placeholder="Enter function f(x)... e.g., x**3 - x - 1 or Math.cos(x) - x" />
+            <datalist id="datalistOptions">
+                <option value="-(x**2) + 1.8*x + 2.5">
+                <option value="Math.exp(-x) - Math.sin(x)">
+                <option value="2*x**5 - Math.cos(x) - x*Math.exp(x)">
+                <option value="-2 + 7*x - 5*x**2 + 6*x**3">
+                <option value="x**3 - x - 1">
+                <option value="Math.exp(-x) - x">
+            </datalist>
+
+            <div class="row gy-3">
+                <div class="col-md-4">
+                    <input type="number" class="form-control" id="Xi" placeholder="Enter initial Xi..." step="any" />
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex align-items-center gap-2">
+                        <input class="form-check-input" type="radio" name="methodType" id="useError" value="error" checked />
+                        <label class="form-check-label" for="useError">Error (%)</label>
+                        <input type="number" class="form-control" id="errorInput" placeholder="e.g., 0.01" step="any" />
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex align-items-center gap-2">
+                        <input class="form-check-input" type="radio" name="methodType" id="useMaxIter" value="maxIter" />
+                        <label class="form-check-label" for="useMaxIter">Max Iter</label>
+                        <input type="number" class="form-control" id="maxIterInput" placeholder="e.g., 10" disabled />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-5 d-none" id="resultTableContainer">
+            <h2 class="text-center">Solution</h2>
+            <p id="rootValue" class="text-end d-none">Root is:</p>
+            <table id="resultTable" class="table table-bordered table-hover text-center table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>i</th><th>Xi</th><th>f(Xi)</th><th>f'(Xi)</th><th>Xi+1</th><th>Error %</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <p id="statusMessage" class="text-center mt-3"></p>
+        </div>
+    </main>
+
+    <footer class="mt-5 text-center py-4 bg-light">
+        <p>Code on <b><a href="https://github.com/DevAboAli" class="text-black">Github</a></b></p>
+    </footer>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const useErrorRadio = document.getElementById("useError");
+            const useMaxIterRadio = document.getElementById("useMaxIter");
+            const errorInput = document.getElementById("errorInput");
+            const maxIterInput = document.getElementById("maxIterInput");
+            const resultTableContainer = document.getElementById("resultTableContainer");
+            const rootValue = document.getElementById("rootValue");
+            const resultTableBody = document.querySelector("#resultTable tbody");
+            const statusMessage = document.getElementById("statusMessage");
+
+            function formatNum(num, decimals = 5) {
+                if (isNaN(num) || !isFinite(num)) { return 'N/A'; }
+                return num.toFixed(decimals);
+            }
+
+            useErrorRadio.addEventListener("change", () => {
+                if (useErrorRadio.checked) {
+                    errorInput.disabled = false;
+                    maxIterInput.disabled = true; maxIterInput.value = "";
+                }
+            });
+            useMaxIterRadio.addEventListener("change", () => {
+                if (useMaxIterRadio.checked) {
+                    maxIterInput.disabled = false;
+                    errorInput.disabled = true; errorInput.value = "";
+                }
+            });
+
+            document.getElementById("clearIcon").addEventListener("click", () => {
+                document.getElementById("exampleDataList").value = "";
+                document.getElementById("Xi").value = ""; errorInput.value = ""; maxIterInput.value = "";
+                resultTableContainer.classList.add("d-none"); rootValue.classList.add("d-none");
+                statusMessage.textContent = ""; resultTableBody.innerHTML = "";
+                useErrorRadio.checked = true; errorInput.disabled = false; maxIterInput.disabled = true;
+            });
+
+            document.getElementById("calculateIcon").addEventListener("click", () => {
+                resultTableBody.innerHTML = ""; rootValue.classList.add("d-none");
+                statusMessage.textContent = ""; resultTableContainer.classList.add("d-none");
+
+                let funcStr = document.getElementById("exampleDataList").value.trim();
+                const x0_input = document.getElementById("Xi").value;
+                const useError = useErrorRadio.checked;
+                const eps_input = errorInput.value;
+                const maxIter_input = maxIterInput.value;
+                const safetyMaxIter = 100;
+
+                if (!funcStr) { alert("Please enter the function f(x)."); return; }
+                const x0 = parseFloat(x0_input);
+                if (isNaN(x0)) { alert("Please enter a valid numeric initial guess Xi."); return; }
+                let eps = NaN;
+                if (useError) {
+                    eps = parseFloat(eps_input);
+                    if (isNaN(eps) || eps <= 0) { alert("Please enter a valid positive error tolerance (%)."); return; }
+                }
+                let maxIter = NaN;
+                if (!useError) {
+                    maxIter = parseInt(maxIter_input);
+                    if (isNaN(maxIter) || maxIter <= 0) { alert("Please enter a valid positive maximum number of iterations."); return; }
+                }
+
+                let f, derivative;
+                try {
+                    funcStr = funcStr.replace(/\^/g, "**");
+                    funcStr = funcStr.replace(/-\s*x\*\*(\d+)/g, '-(x**$1)');
+
+                    const mathFunctions = ['cos', 'sin', 'tan', 'exp', 'log', 'sqrt', 'pow', 'abs', 'acos', 'asin', 'atan', 'log10', 'log2'];
+                    mathFunctions.forEach(m => {
+                        const regex = new RegExp(`(?<![a-zA-Z0-9_\\.])${m}\\s*\\(`, 'g');
+                        funcStr = funcStr.replace(regex, `Math.${m}(`);
+                    });
+                    funcStr = funcStr.replace(/(?<!Math\.)PI/gi, 'Math.PI');
+                    funcStr = funcStr.replace(/(?<!Math\.)E/gi, 'Math.E');
+
+                    funcStr = funcStr.replace(/(\d(?:\.\d+)?)(\s*)x/g, '$1*$2x');
+                    funcStr = funcStr.replace(/(\))(\s*)x/g, '$1*$2x');
+                    funcStr = funcStr.replace(/x(\s*)(\d)/g, 'x*$1$2');
+                    funcStr = funcStr.replace(/x(\s*)(\()/g, 'x*$1$2');
+
+                    console.log("Processed function string:", funcStr);
+
+                    f = new Function('x', `try { return ${funcStr}; } catch(e) { console.error("Error evaluating f(x) at x="+x+":", e, "Processed function: ${funcStr.replace(/"/g, '\\"')}"); return NaN; }`);
+
+                    derivative = function (func, x, h = 1e-7) {
+                        if (isNaN(x)) return NaN;
+                        const f_x_plus_h = func(x + h); const f_x_minus_h = func(x - h);
+                        if (isNaN(f_x_plus_h) || isNaN(f_x_minus_h) || h === 0) { console.warn(`Deriv issue @${x}: f(x+h)=${f_x_plus_h}, f(x-h)=${f_x_minus_h}`); return NaN; }
+                        if (Math.abs(f_x_plus_h - f_x_minus_h) < 1e-15 && Math.abs(2 * h) < 1e-15) return 0;
+                        if (Math.abs(2 * h) < 1e-15) return Infinity;
+                        return (f_x_plus_h - f_x_minus_h) / (2 * h);
+                    }
+
+                } catch (e) {
+                    alert("Error parsing function. Check syntax.\nError: " + e.message);
+                    console.error("Function parsing error:", e, "Original string:", funcStr);
+                    return;
+                }
+
+                resultTableContainer.classList.remove("d-none");
+                let xi = x0; let xi_previous = NaN; let iter = 0; let error = NaN; let xiNext = NaN;
+
+                while (true) {
+                    iter++;
+                    const fxi = f(xi); const fpxi = derivative(f, xi);
+
+                    if (iter > 1 && !isNaN(xi_previous)) {
+                        if (Math.abs(xi) < 1e-12) { error = Math.abs(xi_previous) < 1e-12 ? 0 : Math.abs(xi - xi_previous) * 1e12; }
+                        else { error = Math.abs((xi - xi_previous) / xi) * 100; }
+                    } else { error = NaN; }
+
+                    let calculationFailed = false; let failureMessage = "";
+                    if (isNaN(xi)) { calculationFailed = true; failureMessage = `Calc Error: Xi became NaN @ iter ${iter}.`; }
+                    else if (isNaN(fxi) || isNaN(fpxi)) { calculationFailed = true; failureMessage = `Calc Error: f(${formatNum(xi)}) or f'(${formatNum(xi)}) is NaN.`; xiNext = NaN; }
+                    else if (Math.abs(fpxi) < 1e-14) { calculationFailed = true; failureMessage = `Calc Warn: Derivative f'(${formatNum(xi)})≈${formatNum(fpxi)} near zero.`; xiNext = xi; }
+                    else {
+                        xiNext = xi - fxi / fpxi;
+                        if (isNaN(xiNext) || !isFinite(xiNext)) { calculationFailed = true; failureMessage = `Calc Error: Xi+1=${xiNext} from ${formatNum(xi)}-${formatNum(fxi)}/${formatNum(fpxi)}.`; }
+                    }
+
+                    const isStoppingOnError = useError && !isNaN(error) && error < eps;
+                    const isStoppingOnMaxIter = !useError && iter >= maxIter;
+                    const isStoppingOnSafety = iter >= safetyMaxIter;
+                    const isLastIteration = calculationFailed || isStoppingOnError || isStoppingOnMaxIter || isStoppingOnSafety;
+
+                    const errorDisplay = iter === 1 ? '-' : formatNum(error, 5);
+                    resultTableBody.innerHTML += `
+                      <tr>
+                        <td>${iter}</td> <td>${formatNum(xi)}</td> <td>${formatNum(fxi)}</td>
+                        <td>${formatNum(fpxi)}</td>
+                        <td>${(isLastIteration && !calculationFailed && isFinite(xiNext)) ? `<span class='badge bg-info text-dark'>${formatNum(xiNext)}</span>` : formatNum(xiNext)}</td>
+                        <td>${errorDisplay}</td>
+                      </tr>`;
+
+                    if (isLastIteration) {
+                        statusMessage.textContent = ""; statusMessage.className = 'text-center mt-3';
+                        if (calculationFailed) { statusMessage.textContent = failureMessage; statusMessage.classList.add('text-danger'); }
+                        else if (isStoppingOnError) { statusMessage.textContent = `Converged: Error (${formatNum(error)}%) < Tol (${formatNum(eps)}%).`; statusMessage.classList.add('text-success'); }
+                        else if (isStoppingOnMaxIter) { statusMessage.textContent = `Stopped: Max iterations (${maxIter}) reached.`; }
+                        else if (isStoppingOnSafety) { statusMessage.textContent = `Stopped: Safety limit (${safetyMaxIter}) reached.`; statusMessage.classList.add('text-warning'); }
+                        if (!calculationFailed && isFinite(xiNext)) { rootValue.textContent = `Root ≈ ${formatNum(xiNext)}`; rootValue.classList.remove("d-none"); }
+                        else { rootValue.classList.add("d-none"); }
+                        break;
+                    }
+
+                    xi_previous = xi; xi = xiNext;
+                }
+            });
+        });
+    </script>
+
+</body>
 </html>
